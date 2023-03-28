@@ -1,0 +1,484 @@
+---
+title: "Thesis Analysis"
+output: pdf_document
+date: "2023-02-22"
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+library(readxl)
+library(tidyverse)
+library(lubridate)
+library(Hmisc)
+library(heplots)
+library(ggExtra)
+library(caret)
+library(class)
+library(kableExtra)
+library(knitr)
+```
+
+# Secondary Cleaning
+
+```{r}
+# # flow >> rename geographies, assign mutual geos to payscale data and census 
+# >> filter race data to groups we care about >> add entropy values >> join 
+# census race data with payscale
+
+
+
+### Filter payscale data by race
+# loading data
+load("~/Yale/2022 Fall/Tobin RA/alldata.RData")
+
+# subset based on 5 major race groups recognized by census
+# organize race
+head(sort(table(alldata$RACE_SET),TRUE))
+alldata <- alldata %>% 
+  filter(RACE_SET %in% c("White", "Hispanic", "Black or African American",
+                         "Asian", "American Indian and Alaska Native"))
+table(alldata$RACE_SET)
+```
+```{r}
+### read in census datasets
+# note cbsa_race10.csv in my filesystem is table P1, v2 is table P2 
+# from census bureau
+cbsa_race10 <- read.csv("cbsa_race10v2.csv")
+cbsa_city <- read_xls("cbsa_major_cities.xls", col_names = TRUE)
+cbsa_city <- cbsa_city[-c(1:2),] # gets rid of extra header
+names(cbsa_city) <- c("CBSA_code", "CBSA_title", "metro_micro_area", 
+                      "principal_city", "FIPS_state", "FIPS_place")
+```
+
+```{r}
+### assigning a CBSA to each datapoint in alldata
+#recoding states in payscale data
+alldata <- alldata %>% 
+  mutate(
+    LOCATION_STATE = case_when(
+      LOCATION_STATE == "Alabama" ~ 'AL',
+      LOCATION_STATE == "Alaska" ~ 'AK',
+      LOCATION_STATE == "Arizona" ~ 'AZ',
+      LOCATION_STATE == "Arkansas" ~ 'AR',
+      LOCATION_STATE == "California" ~ 'CA',
+      LOCATION_STATE == "Colorado" ~ 'CO',
+      LOCATION_STATE == "Connecticut" ~ 'CT',
+      LOCATION_STATE == "Delaware" ~ 'DE',
+      LOCATION_STATE == "Florida" ~ 'FL',
+      LOCATION_STATE == "Georgia" ~ 'GA',
+      LOCATION_STATE == "Hawaii" ~ 'HI',
+      LOCATION_STATE == "Idaho" ~ 'ID',
+      LOCATION_STATE == "Illinois" ~ 'IL',
+      LOCATION_STATE == "Indiana" ~ 'IN',
+      LOCATION_STATE == "Iowa" ~ 'IA',
+      LOCATION_STATE == "Kansas" ~ 'KS',
+      LOCATION_STATE == "Kentucky" ~ 'KY',
+      LOCATION_STATE == "Louisiana" ~ 'LA',
+      LOCATION_STATE == "Maine" ~ 'ME',
+      LOCATION_STATE == "Maryland" ~ 'MD',
+      LOCATION_STATE == "Massachusetts" ~ 'MA',
+      LOCATION_STATE == "Michigan" ~ 'MI',
+      LOCATION_STATE == "Minnesota" ~ 'MN',
+      LOCATION_STATE == "Mississippi" ~ 'MS',
+      LOCATION_STATE == "Missouri" ~ 'MO',
+      LOCATION_STATE == "Montana" ~ 'MT',
+      LOCATION_STATE == "Nebraska" ~ 'NE',
+      LOCATION_STATE == "Nevada" ~ 'NV',
+      LOCATION_STATE == "New Hampshire" ~ 'NH',
+      LOCATION_STATE == "New Jersey" ~ 'NJ',
+      LOCATION_STATE == "New Mexico" ~ 'NM',
+      LOCATION_STATE == "New York" ~ 'NY',
+      LOCATION_STATE == "North Carolina" ~ 'NC',
+      LOCATION_STATE == "North Dakota" ~ 'ND',
+      LOCATION_STATE == "Ohio" ~ 'OH',
+      LOCATION_STATE == "Oklahoma" ~ 'OK',
+      LOCATION_STATE == "Oregon" ~ 'OR',
+      LOCATION_STATE == "Pennsylvania" ~ 'PA',
+      LOCATION_STATE == "Rhode Island" ~ 'RI',
+      LOCATION_STATE == "South Carolina" ~ 'SC',
+      LOCATION_STATE == "South Dakota" ~ 'SD',
+      LOCATION_STATE == "Tennessee" ~ 'TN',
+      LOCATION_STATE == "Texas" ~ 'TX',
+      LOCATION_STATE == "Utah" ~ 'UT',
+      LOCATION_STATE == "Vermont" ~ 'VT',
+      LOCATION_STATE == "Virginia" ~ 'VA',
+      LOCATION_STATE == "Washington" ~ 'WA',
+      LOCATION_STATE == "West Virginia" ~ 'WV',
+      LOCATION_STATE == "Wisconsin" ~ 'WI',
+      LOCATION_STATE == "Wyoming" ~ 'WY',
+      LOCATION_STATE == "District of Columbia" ~ 'DC',
+      TRUE ~ "NA"
+    )
+  )
+
+# recoding states in cbsa_city to LOCATION_STATE
+# needs to be numeric for logic
+cbsa_city$FIPS_state <- as.numeric(cbsa_city$FIPS_state)
+cbsa_city <- cbsa_city %>%
+  mutate(
+    LOCATION_STATE = case_when(
+      FIPS_state == 01 ~ "ALABAMA",
+      FIPS_state == 02 ~ "ALASKA",
+      FIPS_state == 04 ~ "ARIZONA",
+      FIPS_state == 05 ~ "ARKANSAS",
+      FIPS_state == 06 ~ "CALIFORNIA",
+      FIPS_state == 08 ~ "COLORADO",
+      FIPS_state == 09 ~ "CONNECTICUT",
+      FIPS_state == 10 ~ "DELAWARE",
+      FIPS_state == 11 ~ "DISTRICT OF COLUMBIA",
+      FIPS_state == 12 ~ "FLORIDA",
+      FIPS_state == 13 ~ "GEORGIA",
+      FIPS_state == 15 ~ "HAWAII",
+      FIPS_state == 16 ~ "IDAHO",
+      FIPS_state == 17 ~ "ILLINOIS",
+      FIPS_state == 18 ~ "INDIANA",
+      FIPS_state == 19 ~ "IOWA",
+      FIPS_state == 20 ~ "KANSAS",
+      FIPS_state == 21 ~ "KENTUCKY",
+      FIPS_state == 22 ~ "LOUISIANA",
+      FIPS_state == 23 ~ "MAINE",
+      FIPS_state == 24 ~ "MARYLAND",
+      FIPS_state == 25 ~ "MASSACHUSETTS",
+      FIPS_state == 26 ~ "MICHIGAN",
+      FIPS_state == 27 ~ "MINNESOTA",
+      FIPS_state == 28 ~ "MISSISSIPPI",
+      FIPS_state == 29 ~ "MISSOURI",
+      FIPS_state == 30 ~ "MONTANA",
+      FIPS_state == 31 ~ "NEBRASKA",
+      FIPS_state == 32 ~ "NEVADA",
+      FIPS_state == 33 ~ "NEW HAMPSHIRE",
+      FIPS_state == 34 ~ "NEW JERSEY",
+      FIPS_state == 35 ~ "NEW MEXICO",
+      FIPS_state == 36 ~ "NEW YORK",
+      FIPS_state == 37 ~ "NORTH CAROLINA",
+      FIPS_state == 38 ~ "NORTH DAKOTA",
+      FIPS_state == 39 ~ "OHIO",
+      FIPS_state == 40 ~ "OKLAHOMA",
+      FIPS_state == 41 ~ "OREGON",
+      FIPS_state == 42 ~ "PENNSYLVANIA",
+      FIPS_state == 44 ~ "RHODE ISLAND",
+      FIPS_state == 45 ~ "SOUTH CAROLINA",
+      FIPS_state == 46 ~ "SOUTH DAKOTA",
+      FIPS_state == 47 ~ "TENNESSEE",
+      FIPS_state == 48 ~ "TEXAS",
+      FIPS_state == 49 ~ "UTAH",
+      FIPS_state == 50 ~ "VERMONT",
+      FIPS_state == 51 ~ "VIRGINIA",
+      FIPS_state == 53 ~ "WASHINGTON",
+      FIPS_state == 54 ~ "WEST VIRGINIA",
+      FIPS_state == 55 ~ "WISCONSIN",
+      FIPS_state == 56 ~ "WYOMING",
+      TRUE ~ "NA"
+    )
+  )
+# shorten to abbrev, could prob do more elegantly but eh
+cbsa_city <- cbsa_city %>% 
+  mutate(
+    LOCATION_STATE = case_when(
+      LOCATION_STATE == "ALABAMA" ~ "AL",
+      LOCATION_STATE == "ALASKA" ~ "AK",
+      LOCATION_STATE == "ARIZONA" ~ "AZ",
+      LOCATION_STATE == "ARKANSAS" ~ "AR",
+      LOCATION_STATE == "CALIFORNIA" ~ "CA",
+      LOCATION_STATE == "COLORADO" ~ "CO",
+      LOCATION_STATE == "CONNECTICUT" ~ "CT",
+      LOCATION_STATE == "DELAWARE" ~ "DE",
+      LOCATION_STATE == "DISTRICT OF COLUMBIA" ~ "DC",
+      LOCATION_STATE == "FLORIDA" ~"FL",
+      LOCATION_STATE == "GEORGIA" ~ "GA",
+      LOCATION_STATE == "HAWAII" ~ "HI",
+      LOCATION_STATE == "IDAHO" ~ "ID",
+      LOCATION_STATE == "ILLINOIS" ~ "IL",
+      LOCATION_STATE == "INDIANA" ~ "IN",
+      LOCATION_STATE == "IOWA" ~ "IA",
+      LOCATION_STATE == "KANSAS" ~ "KS",
+      LOCATION_STATE == "KENTUCKY" ~ "KY",
+      LOCATION_STATE == "LOUISIANA" ~ "LA",
+      LOCATION_STATE == "MAINE" ~ "ME",
+      LOCATION_STATE == "MARYLAND" ~ "MD",
+      LOCATION_STATE == "MASSACHUSETTS" ~ "MA",
+      LOCATION_STATE == "MICHIGAN" ~ "MI",
+      LOCATION_STATE == "MINNESOTA" ~ "MN",
+      LOCATION_STATE == "MISSISSIPPI" ~ "MS",
+      LOCATION_STATE == "MISSOURI" ~ "MO",
+      LOCATION_STATE == "MONTANA" ~ "MT",
+      LOCATION_STATE == "NEBRASKA" ~ "NE",
+      LOCATION_STATE == "NEVADA" ~ "NV",
+      LOCATION_STATE == "NEW HAMPSHIRE" ~ "NH",
+      LOCATION_STATE == "NEW JERSEY" ~ "NJ",
+      LOCATION_STATE == "NEW MEXICO" ~ "NM",
+      LOCATION_STATE == "NEW YORK" ~ "NY",
+      LOCATION_STATE == "NORTH CAROLINA" ~ "NC",
+      LOCATION_STATE == "NORTH DAKOTA" ~ "ND",
+      LOCATION_STATE == "OHIO" ~ "OH",
+      LOCATION_STATE == "OKLAHOMA" ~ "OK",
+      LOCATION_STATE == "OREGON" ~ "OR",
+      LOCATION_STATE == "PENNSYLVANIA" ~ "PA",
+      LOCATION_STATE == "RHODE ISLAND" ~ "RI",
+      LOCATION_STATE == "SOUTH CAROLINA" ~ "SC",
+      LOCATION_STATE == "SOUTH DAKOTA" ~ "SD",
+      LOCATION_STATE == "TENNESSEE" ~ "TN",
+      LOCATION_STATE == "TEXAS" ~ "TX",
+      LOCATION_STATE == "UTAH" ~ "UT",
+      LOCATION_STATE == "VERMONT" ~ "VT",
+      LOCATION_STATE == "VIRGINIA" ~ "VA",
+      LOCATION_STATE == "WASHINGTON" ~ "WA",
+      LOCATION_STATE == "WEST VIRGINIA" ~ "WV",
+      LOCATION_STATE == "WISCONSIN" ~ "WI",
+      LOCATION_STATE == "WYOMING" ~ "WY",
+      TRUE ~ "NA"
+    )
+  )
+
+alldata$citystate <- stringr::str_c(alldata$LOCATION_CITY, ", ", 
+                                    alldata$LOCATION_STATE)
+# func to get state from cbsa titles
+# substrRight <- function(x, n){
+#   substr(x, nchar(x)-n+1, nchar(x))
+# }
+cbsa_city$citystate <- stringr::str_c(cbsa_city$principal_city, ", ",
+                                      cbsa_city$LOCATION_STATE)
+
+# now cbsa_city and alldata have a column I can join by to insert metro
+# areas to alldata
+```
+
+
+
+
+
+```{r}
+# adding metro areas to the payscale data via left join
+# only 56 datapoints don't fit into a metro/micro area
+cbsa_city_small <- cbsa_city[,c("CBSA_title", "citystate")]
+alldata <- alldata %>% left_join(cbsa_city_small, by = "citystate")
+alldata[,c("citystate", "LOCATION_CITY", "LOCATION_STATE")]
+```
+
+```{r}
+# adding race data from table P2 from the decennial census to payscale data
+# excluding data on specific multiracial groups
+cbsa_race10 <- cbsa_race10[complete.cases(cbsa_race10),c(1:12)]
+# converting to numeric
+for (i in c(2:12)){
+  cbsa_race10[,i] <- as.numeric(gsub(",", "", cbsa_race10[,i]))
+}
+# renaming census columns to be joined with payscale data
+names(cbsa_race10) <- c("CBSA_title", "t_2010", "t_hispanic_2010",
+                        "t_not_hisp_2010", "t_single_2010", "t_white_2010", 
+                        "t_black_2010", "t_native_2010", "t_asian_2010",
+                        "t_islander_2010", "other_2010", "multi_2010")
+
+```
+
+
+## Doing it all again for 2020 lol
+```{r}
+cbsa_race20 <- read.csv("cbsa_race20v2.csv")
+cbsa_race20 <- cbsa_race20[complete.cases(cbsa_race20),c(1:12)]
+# converting to numeric
+for (i in c(2:12)){
+  cbsa_race20[,i] <- as.numeric(gsub(",", "", cbsa_race20[,i]))
+}
+# renaming census columns to be joined with payscale data
+names(cbsa_race20) <- c("CBSA_title", "t_2020", "t_hispanic_2020",
+                        "t_not_hisp_2020", "t_single_2020", "t_white_2020", 
+                        "t_black_2020", "t_native_2020", "t_asian_2020",
+                        "t_islander_2020", "other_2020", "multi_2020")
+
+```
+
+
+# creating entropy rate
+
+Recall Shannon's definition of information entropy: 
+$$ \sum p log(\frac{1}{p}) $$
+where p is the proportion of a given group in the overall population.
+
+```{r}
+# first calculate entropy of each cbsa area (do this before the join!!!)
+# we will use the cbbsa_city_race10 and cbsa_race20 tables
+# recall main groups are: hispanic, white, black, native american, asian, pacific islander, other single race, and multiracial
+
+# this function will take an individual row from cbsa_raceXX, and calculate the
+# entropy rate for that city
+# we can iterate this function over all rows of cbsa_raceXX so when we join,
+# each observation will have an associated entropy for 2010 and 2020
+entropyrate <- function(x){
+  thisrow <- as.vector(x[c(3,6,7,8,9,10,11,12)])
+  props <- as.numeric(thisrow) / as.numeric(x[2])
+  entropies <- props * log(1/props)
+  entropy <- sum(entropies)
+  return(entropy)
+} ############## LOL PLEASE CHECK THIS
+entropyrate(cbsa_race10[1,])
+
+
+
+```
+
+# joining census with payscale
+
+```{r}
+# removing "micro area" and "metro area" suffix to census data to make join
+# consistent for 2010
+cbsa_race10$CBSA_title <- gsub(" Micro Area","", cbsa_race10$CBSA_title)
+cbsa_race10$CBSA_title <- gsub(" Metro Area","", cbsa_race10$CBSA_title)
+cbsa_race10$CBSA_title <- str_trim(cbsa_race10$CBSA_title) # weird but nec bc
+# there are unseen prefix spaces in the cbsa titles from census data
+
+# inner join census with payscale data
+alldata <- alldata %>% inner_join(cbsa_race10, by = "CBSA_title")
+cbsa_city_small %>% left_join(cbsa_race10, by = "CBSA_title")
+
+# removing "micro area" and "metro area" suffix to census data to make join
+# consistent for 2020
+cbsa_race20$CBSA_title <- gsub(" Micro Area","", cbsa_race20$CBSA_title)
+cbsa_race20$CBSA_title <- gsub(" Metro Area","", cbsa_race20$CBSA_title)
+cbsa_race20$CBSA_title <- str_trim(cbsa_race20$CBSA_title) # weird but nec
+# inner join census with payscale data
+alldata <- alldata %>% inner_join(cbsa_race20, by = "CBSA_title")
+```
+
+
+
+# Descriptive statistics
+```{r}
+# for women
+quantile(alldata$TCC[alldata$GENDER == "Female"], probs = c(.25,.5,.75), na.rm=TRUE)
+min(alldata$TCC[alldata$GENDER == "Female"], na.rm=TRUE)
+max(alldata$TCC[alldata$GENDER == "Female"], na.rm=TRUE)
+mean(alldata$TCC[alldata$GENDER == "Female"], na.rm=TRUE)
+sd(alldata$TCC[alldata$GENDER == "Female"], na.rm=TRUE)
+
+
+quantile(alldata$TCC[alldata$GENDER == "Male"], probs = c(.25,.5,.75), na.rm=TRUE)
+min(alldata$TCC[alldata$GENDER == "Male"], na.rm=TRUE)
+max(alldata$TCC[alldata$GENDER == "Male"], na.rm=TRUE)
+mean(alldata$TCC[alldata$GENDER == "Male"], na.rm=TRUE)
+sd(alldata$TCC[alldata$GENDER == "Male"], na.rm=TRUE)
+```
+
+### a little codebook:
+
+t_2010 is total population in 2010
+
+t_hispanic_2010 is total population of hispanics 2010
+t_nonhispanic_2010 is total pop of non hispanics 2010
+t_single_2010 is total pop of non hispanics identifying wit)h only one race 2010
+t_white_2010 is total pop of single-race identifying whites 2010
+etc
+
+
+## based on quantiles of percent white
+```{r}
+# creating percent white
+alldata$perwhite10 <- alldata$t_white_2010 / alldata$t_2010
+# assigning quantiles
+alldata <- alldata %>%
+  mutate(whitequantile = ntile(perwhite10, 4))
+
+gender_pay_quantiles <- function(df) {
+  # initialize matrix to store
+  tempmatrix <- matrix(ncol = 0, nrow = 4)
+  # differentiate between male and female
+  male_quantiles <- df %>% 
+    filter(GENDER == "Male") %>%  select(SALARY) %>%
+  quantile(probs = c(0.25, 0.5, 0.75, 1), na.rm=TRUE)
+  female_quantiles <- df %>% 
+    filter(GENDER == "Female") %>%  select(SALARY) %>%
+  quantile(probs = c(0.25, 0.5, 0.75, 1), na.rm=TRUE)
+  tempmatrix <- cbind(tempmatrix, male_quantiles, female_quantiles)
+  return(tempmatrix)
+}
+
+
+# create table of quantiles across all quartiles of white
+gender_quantile_table <- data.frame(matrix(ncol = 0, nrow = 4))# init table
+for (i in c(1:4)){
+  iter_matrix <- gender_pay_quantiles(filter(alldata, whitequantile == i))
+  gender_quantile_table <- cbind(gender_quantile_table, iter_matrix)
+}
+
+# run this in a throwaway r script
+kable(gender_quantile_table,
+      caption = "gender pay quantiles across white quantiles",
+      "latex",
+      booktabs = T,
+      align = c("r"),
+      col.names = c("m","f","m","f","m","f","m","f")) %>%
+  kable_styling("striped", full_width = F,
+                position = "left", font_size = 12) %>%
+  add_header_above(c(" " = 1, "1st" = 2, "2nd" = 2, "3rd" = 2, "4th" = 2))
+
+```
+
+
+## based on quantiles of percent black
+```{r}
+# creating percent white
+alldata$perblack10 <- alldata$t_black_2010 / alldata$t_2010
+# assigning quantiles
+alldata <- alldata %>%
+  mutate(blackquantile = ntile(perblack10, 4))
+
+
+
+# create table of quantiles across all quartiles of white
+gender_quantile_table <- data.frame(matrix(ncol = 0, nrow = 4))# init table
+for (i in c(1:4)){
+  iter_matrix <- gender_pay_quantiles(filter(alldata, blackquantile == i))
+  gender_quantile_table <- cbind(gender_quantile_table, iter_matrix)
+}
+
+# run this in a throwaway r script
+kable(gender_quantile_table,
+      caption = "gender pay quantiles across black quantiles",
+      "latex",
+      booktabs = T,
+      align = c("r"),
+      col.names = c("m","f","m","f","m","f","m","f")) %>%
+  kable_styling("striped", full_width = F,
+                position = "left", font_size = 12) %>%
+  add_header_above(c(" " = 1, "1st" = 2, "2nd" = 2, "3rd" = 2, "4th" = 2))
+
+
+```
+
+
+## based on quantiles of percent hispanic in 2010
+```{r}
+# creating percent white
+alldata$perhisp10 <- alldata$t_hispanic_2010 / alldata$t_2010
+# assigning quantiles
+alldata <- alldata %>%
+  mutate(hispquantile = ntile(perhisp10, 4))
+
+
+
+# create table of quantiles across all quartiles of white
+gender_quantile_table <- data.frame(matrix(ncol = 0, nrow = 4))# init table
+for (i in c(1:4)){
+  iter_matrix <- gender_pay_quantiles(filter(alldata, hispquantile == i))
+  gender_quantile_table <- cbind(gender_quantile_table, iter_matrix)
+}
+
+# run this in a throwaway r script
+kable(gender_quantile_table,
+      caption = "gender pay quantiles across hispanic quantiles",
+      "latex",
+      booktabs = T,
+      align = c("r"),
+      col.names = c("m","f","m","f","m","f","m","f")) %>%
+  kable_styling("striped", full_width = F,
+                position = "left", font_size = 12) %>%
+  add_header_above(c(" " = 1, "1st" = 2, "2nd" = 2, "3rd" = 2, "4th" = 2))
+
+
+```
+
+
+
