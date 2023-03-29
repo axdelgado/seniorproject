@@ -32,7 +32,7 @@ library(knitr)
 
 ### Filter payscale data by race
 # loading data
-load("~/Yale/2022 Fall/Tobin RA/alldata.RData")
+load("~/tobin/statdiscrimination/alldata.RData")
 
 # subset based on 5 major race groups recognized by census
 # organize race
@@ -298,7 +298,15 @@ Recall Shannon's definition of information entropy:
 $$ \sum p log(\frac{1}{p}) $$
 where p is the proportion of a given group in the overall population.
 
+I will create this variable for the cbsa_raceXX datasets before merging them
+with the larger payScale dataset. This should be much less computationally 
+expensive.
+
 ```{r}
+#####################################
+# function to calculate entropy
+#####################################
+
 # first calculate entropy of each cbsa area (do this before the join!!!)
 # we will use the cbbsa_city_race10 and cbsa_race20 tables
 # recall main groups are: hispanic, white, black, native american, asian, pacific islander, other single race, and multiracial
@@ -308,17 +316,31 @@ where p is the proportion of a given group in the overall population.
 # we can iterate this function over all rows of cbsa_raceXX so when we join,
 # each observation will have an associated entropy for 2010 and 2020
 entropyrate <- function(x){
-  thisrow <- as.vector(x[c(3,6,7,8,9,10,11,12)])
-  props <- as.numeric(thisrow) / as.numeric(x[2])
+  racecounts <- as.vector(x[c(3,6,7,8,9,10,11,12)])
+  props <- as.numeric(racecounts) / as.numeric(x[2])
   entropies <- props * log(1/props)
   entropy <- sum(entropies)
   return(entropy)
 } ############## LOL PLEASE CHECK THIS
-entropyrate(cbsa_race10[1,])
 
-
-
+### seems right!
+# entropyrate(cbsa_race10[1,])
 ```
+
+```{r}
+###############################
+# applying entropy function to cbsa data
+###############################
+cbsa_race10 <- cbsa_race10 %>% 
+  mutate(
+    entropy10 = apply(cbsa_race10, 1, entropyrate)
+  )
+cbsa_race20 <- cbsa_race20 %>% 
+  mutate(
+    entropy20 = apply(cbsa_race20, 1, entropyrate)
+  )
+```
+
 
 # joining census with payscale
 
@@ -444,7 +466,6 @@ kable(gender_quantile_table,
   kable_styling("striped", full_width = F,
                 position = "left", font_size = 12) %>%
   add_header_above(c(" " = 1, "1st" = 2, "2nd" = 2, "3rd" = 2, "4th" = 2))
-
 
 ```
 
