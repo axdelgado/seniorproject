@@ -19,6 +19,7 @@ library(caret)
 library(class)
 library(kableExtra)
 library(knitr)
+#test2
 ```
 
 # Secondary Cleaning
@@ -32,7 +33,7 @@ library(knitr)
 
 ### Filter payscale data by race
 # loading data
-load("~/tobin/statdiscrimination/alldata.RData")
+load("~/statdiscrimination/alldata.RData")
 
 # subset based on 5 major race groups recognized by census
 # organize race
