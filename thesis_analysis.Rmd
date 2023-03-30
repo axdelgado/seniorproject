@@ -353,7 +353,7 @@ cbsa_race10$CBSA_title <- gsub(" Metro Area","", cbsa_race10$CBSA_title)
 cbsa_race10$CBSA_title <- str_trim(cbsa_race10$CBSA_title) # weird but nec bc
 # there are unseen prefix spaces in the cbsa titles from census data
 
-# inner join census with payscale data
+# inner join 2010 census with payscale data
 alldata <- alldata %>% inner_join(cbsa_race10, by = "CBSA_title")
 cbsa_city_small %>% left_join(cbsa_race10, by = "CBSA_title")
 
@@ -362,7 +362,7 @@ cbsa_city_small %>% left_join(cbsa_race10, by = "CBSA_title")
 cbsa_race20$CBSA_title <- gsub(" Micro Area","", cbsa_race20$CBSA_title)
 cbsa_race20$CBSA_title <- gsub(" Metro Area","", cbsa_race20$CBSA_title)
 cbsa_race20$CBSA_title <- str_trim(cbsa_race20$CBSA_title) # weird but nec
-# inner join census with payscale data
+# inner join 2020 census with payscale data
 alldata <- alldata %>% inner_join(cbsa_race20, by = "CBSA_title")
 ```
 
@@ -503,4 +503,34 @@ kable(gender_quantile_table,
 ```
 
 
+
+# Analysis
+
+## factoring data
+```{r}
+# factor highest education, no higher education will be baseline
+alldata$highest <- relevel(as.factor(alldata$highest), ref = "none")
+# factor race
+
+```
+
+
+## controls only
+```{r}
+lm1 <- lm(log(SALARY) ~ AGE + YRS_EXP + highest + GENDER + LOCATION_STATE, 
+          data = alldata)
+summary(lm1)
+```
+
+## with race
+```{r}
+lm1 <- lm(log(SALARY) ~ AGE + YRS_EXP + highest + GENDER + LOCATION_STATE, 
+          data = alldata)
+summary(lm1)
+```
+
+
+```{r}
+
+```
 
