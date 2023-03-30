@@ -510,7 +510,8 @@ kable(gender_quantile_table,
 ```{r}
 # factor highest education, no higher education will be baseline
 alldata$highest <- relevel(as.factor(alldata$highest), ref = "none")
-# factor race
+# factor race, white will be baseline
+alldata$RACE_SET <- relevel(as.factor(alldata$RACE_SET), ref = "White")
 
 ```
 
@@ -524,9 +525,10 @@ summary(lm1)
 
 ## with race
 ```{r}
-lm1 <- lm(log(SALARY) ~ AGE + YRS_EXP + highest + GENDER + LOCATION_STATE, 
+lm2 <- lm(log(SALARY) ~ AGE + YRS_EXP + highest + GENDER + RACE_SET +
+            LOCATION_STATE, 
           data = alldata)
-summary(lm1)
+summary(lm2)
 ```
 
 
