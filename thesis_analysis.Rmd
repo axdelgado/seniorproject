@@ -340,6 +340,7 @@ cbsa_race20 <- cbsa_race20 %>%
   mutate(
     entropy20 = apply(cbsa_race20, 1, entropyrate)
   )
+
 ```
 
 
@@ -364,6 +365,10 @@ cbsa_race20$CBSA_title <- gsub(" Metro Area","", cbsa_race20$CBSA_title)
 cbsa_race20$CBSA_title <- str_trim(cbsa_race20$CBSA_title) # weird but nec
 # inner join 2020 census with payscale data
 alldata <- alldata %>% inner_join(cbsa_race20, by = "CBSA_title")
+
+
+# calculating entropy change over decade
+alldata$d_entropy <- alldata$entropy20 - alldata$entropy10
 ```
 
 
@@ -512,6 +517,8 @@ kable(gender_quantile_table,
 alldata$highest <- relevel(as.factor(alldata$highest), ref = "none")
 # factor race, white will be baseline
 alldata$RACE_SET <- relevel(as.factor(alldata$RACE_SET), ref = "White")
+# factor gender, male will be baseline
+alldata$GENDER <- relevel(as.factor(alldata$GENDER), ref = "Male")
 
 ```
 
@@ -533,7 +540,29 @@ summary(lm2)
 
 
 ```{r}
-
+# with change in entropy
+lm3 <- lm(log(SALARY) ~ d_entropy + AGE + YRS_EXP + highest + GENDER + 
+            RACE_SET + LOCATION_STATE, 
+          data = alldata)
+summary(lm3)
 ```
 
-test branch test test
+# entropy * gender
+```{r}
+# with entropy and gender
+lm4 <- lm(log(SALARY) ~ d_entropy * GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE, 
+          data = alldata)
+summary(lm4)
+```
+
+# making tables
+```{r results = 'asis'}
+stargazer:: stargazer(
+  lm4,
+  omit = c("LOCATION_STATE", "GENDERMissing", "GENDEROther" , 
+           "d_entropy:GENDEROther"),
+  notes = "Regression with a baseline of a white male with no more than a high school education"
+)
+```
+
