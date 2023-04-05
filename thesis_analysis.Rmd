@@ -527,7 +527,7 @@ alldata$GENDER <- relevel(as.factor(alldata$GENDER), ref = "Male")
 ```{r}
 lm1 <- lm(log(SALARY) ~ AGE + YRS_EXP + highest + GENDER + LOCATION_STATE, 
           data = alldata)
-summary(lm1)
+# summary(lm1)
 ```
 
 ## with race
@@ -535,16 +535,16 @@ summary(lm1)
 lm2 <- lm(log(SALARY) ~ AGE + YRS_EXP + highest + GENDER + RACE_SET +
             LOCATION_STATE, 
           data = alldata)
-summary(lm2)
+# summary(lm2)
 ```
 
-
+## with change in entropy
 ```{r}
 # with change in entropy
 lm3 <- lm(log(SALARY) ~ d_entropy + AGE + YRS_EXP + highest + GENDER + 
             RACE_SET + LOCATION_STATE, 
           data = alldata)
-summary(lm3)
+# summary(lm3)
 ```
 
 # entropy * gender
@@ -553,16 +553,21 @@ summary(lm3)
 lm4 <- lm(log(SALARY) ~ d_entropy * GENDER + AGE + YRS_EXP + highest +
             RACE_SET + LOCATION_STATE, 
           data = alldata)
-summary(lm4)
+# summary(lm4)
 ```
-
+\newpage
 # making tables
 ```{r results = 'asis'}
 stargazer:: stargazer(
-  lm4,
+  lm1, lm2, lm3, lm4,
   omit = c("LOCATION_STATE", "GENDERMissing", "GENDEROther" , 
            "d_entropy:GENDEROther"),
-  notes = "Regression with a baseline of a white male with no more than a high school education"
+  notes = "Regression with a baseline of a white male with no more than a high 
+  school education. Note: state effects are used but not shown.",
+  notes.append = FALSE,
+  notes.align = "l",
+  single.row = FALSE,
+  notes.label = ""
 )
 ```
 
