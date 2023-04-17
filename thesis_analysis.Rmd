@@ -1,6 +1,8 @@
 ---
 title: "Thesis Analysis"
-output: pdf_document
+output: 
+  pdf_document:
+    keep_tex: yes
 date: "2023-02-22"
 ---
 
@@ -19,6 +21,7 @@ library(caret)
 library(class)
 library(kableExtra)
 library(knitr)
+library(car)
 #test2
 ```
 
@@ -344,6 +347,8 @@ cbsa_race20 <- cbsa_race20 %>%
 ```
 
 
+
+
 # joining census with payscale
 
 ```{r}
@@ -371,6 +376,15 @@ alldata <- alldata %>% inner_join(cbsa_race20, by = "CBSA_title")
 alldata$d_entropy <- alldata$entropy20 - alldata$entropy10
 ```
 
+
+# calculating changes in race
+```{r}
+alldata$d_white <- (alldata$t_white_2020 - alldata$t_white_2010) / alldata$t_white_2010
+alldata$d_black <- (alldata$t_black_2020 - alldata$t_black_2010) / alldata$t_black_2010
+alldata$d_hispanic <- (alldata$t_hispanic_2020 - alldata$t_hispanic_2010) / alldata$t_hispanic_2010
+alldata$d_native <- (alldata$t_native_2020 - alldata$t_native_2010) / alldata$t_native_2010
+alldata$d_asian <- (alldata$t_asian_2020 - alldata$t_asian_2010) / alldata$t_asian_2010
+```
 
 
 # Descriptive statistics
@@ -509,7 +523,7 @@ kable(gender_quantile_table,
 
 
 
-# Analysis
+# Analysis with entropy
 
 ## factoring data
 ```{r}
@@ -525,14 +539,14 @@ alldata$GENDER <- relevel(as.factor(alldata$GENDER), ref = "Male")
 
 ## controls only
 ```{r}
-lm1 <- lm(log(SALARY) ~ AGE + YRS_EXP + highest + GENDER + LOCATION_STATE, 
+lm1 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest + LOCATION_STATE, 
           data = alldata)
 # summary(lm1)
 ```
 
 ## with race
 ```{r}
-lm2 <- lm(log(SALARY) ~ AGE + YRS_EXP + highest + GENDER + RACE_SET +
+lm2 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest + RACE_SET +
             LOCATION_STATE, 
           data = alldata)
 # summary(lm2)
@@ -541,33 +555,114 @@ lm2 <- lm(log(SALARY) ~ AGE + YRS_EXP + highest + GENDER + RACE_SET +
 ## with change in entropy
 ```{r}
 # with change in entropy
-lm3 <- lm(log(SALARY) ~ d_entropy + AGE + YRS_EXP + highest + GENDER + 
-            RACE_SET + LOCATION_STATE, 
+lm3 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest + 
+            RACE_SET + LOCATION_STATE + d_entropy, 
           data = alldata)
 # summary(lm3)
 ```
 
-# entropy * gender
+## entropy * gender
 ```{r}
 # with entropy and gender
-lm4 <- lm(log(SALARY) ~ d_entropy * GENDER + AGE + YRS_EXP + highest +
-            RACE_SET + LOCATION_STATE, 
+lm4 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_entropy, 
           data = alldata)
 # summary(lm4)
 ```
+
+
+# Analysis with proportion change
+
+## Change in white
+```{r}
+# with entropy and gender
+lm5 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_white, 
+          data = alldata)
+# summary(lm5)
+```
+
+## Change in black
+```{r}
+# with entropy and gender
+lm6 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_black, 
+          data = alldata)
+# summary(lm6)
+```
+
+
+## Change in hispanic
+```{r}
+# with entropy and gender
+lm7 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_hispanic, 
+          data = alldata)
+# summary(lm7)
+```
+
+## Change in native american
+```{r}
+# with entropy and gender
+lm8 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_native, 
+          data = alldata)
+# summary(lm8)
+```
+
+## Change in asian
+```{r}
+# with entropy and gender
+lm9 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_asian, 
+          data = alldata)
+# summary(lm9)
+```
+
+
 \newpage
 # making tables
+
+## entropy tables
 ```{r results = 'asis'}
 stargazer:: stargazer(
   lm1, lm2, lm3, lm4,
   omit = c("LOCATION_STATE", "GENDERMissing", "GENDEROther" , 
            "d_entropy:GENDEROther"),
-  notes = "Regression with a baseline of a white male with no more than a high 
-  school education. Note: state effects are used but not shown.",
+  notes = "",
   notes.append = FALSE,
   notes.align = "l",
   single.row = FALSE,
-  notes.label = ""
+  notes.label = "",
+  no.space= TRUE,
+  omit.stat=c("LL","ser","f"),
+  covariate.labels = c("Female", "Age", "Years of Experience", 
+                       "graduate degree", "Professional Degree", 
+                       "Undergrad Degree", "Native American", "Asian", 
+                       "Black", "Hispanic", "Entropy")
+)
+
+```
+
+## race prop tables
+
+```{r results = 'asis'}
+stargazer:: stargazer(
+  lm5, lm6, lm7, lm8, lm9,
+  omit = c("LOCATION_STATE", "GENDERMissing", "GENDEROther" , 
+           "d_entropy:GENDEROther"),
+  notes = "",
+  notes.append = FALSE,
+  notes.align = "l",
+  single.row = FALSE,
+  notes.label = "",
+  no.space= TRUE,
+  omit.stat=c("LL","ser","f"),
+  covariate.labels = c("Female", "Age", "Years of Experience", 
+                       "graduate degree", "Professional Degree", 
+                       "Undergrad Degree", "Native American", "Asian", 
+                       "Black", "Hispanic", "Entropy", "d_white", "d_black", 
+                       "d_hispanic", "d_native", "d_asian")
 )
 ```
 
