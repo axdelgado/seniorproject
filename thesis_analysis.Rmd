@@ -579,7 +579,7 @@ lm4 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
 lm5 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
             RACE_SET + LOCATION_STATE + GENDER * d_white, 
           data = alldata)
-# summary(lm5)
+summary(lm5)
 ```
 
 ## Change in black
@@ -588,7 +588,7 @@ lm5 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
 lm6 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
             RACE_SET + LOCATION_STATE + GENDER * d_black, 
           data = alldata)
-# summary(lm6)
+summary(lm6)
 ```
 
 
@@ -598,7 +598,7 @@ lm6 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
 lm7 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
             RACE_SET + LOCATION_STATE + GENDER * d_hispanic, 
           data = alldata)
-# summary(lm7)
+summary(lm7)
 ```
 
 ## Change in native american
@@ -607,7 +607,7 @@ lm7 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
 lm8 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
             RACE_SET + LOCATION_STATE + GENDER * d_native, 
           data = alldata)
-# summary(lm8)
+summary(lm8)
 ```
 
 ## Change in asian
@@ -616,7 +616,7 @@ lm8 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
 lm9 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
             RACE_SET + LOCATION_STATE + GENDER * d_asian, 
           data = alldata)
-# summary(lm9)
+summary(lm9)
 ```
 
 
@@ -649,20 +649,19 @@ stargazer:: stargazer(
 ```{r results = 'asis'}
 stargazer:: stargazer(
   lm5, lm6, lm7, lm8, lm9,
-  omit = c("LOCATION_STATE", "GENDERMissing", "GENDEROther" , 
-           "d_entropy:GENDEROther"),
+  omit = c("LOCATION_STATE", "GENDERMissing", "GENDEROther"),
   notes = "",
   notes.append = FALSE,
   notes.align = "l",
   single.row = FALSE,
   notes.label = "",
   no.space= TRUE,
-  omit.stat=c("LL","ser","f"),
-  covariate.labels = c("Female", "Age", "Years of Experience", 
-                       "graduate degree", "Professional Degree", 
-                       "Undergrad Degree", "Native American", "Asian", 
-                       "Black", "Hispanic", "Entropy", "d_white", "d_black", 
-                       "d_hispanic", "d_native", "d_asian")
+  omit.stat=c("LL","ser","f")#,
+  # covariate.labels = c("Female", "Age", "Years of Experience", 
+  #                      "graduate degree", "Professional Degree", 
+  #                      "Undergrad Degree", "Native American", "Asian", 
+  #                      "Black", "Hispanic", "d_white", "d_black", 
+  #                      "d_hispanic", "d_native", "d_asian")
 )
 ```
 
