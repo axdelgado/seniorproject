@@ -26,7 +26,7 @@ library(car)
 ```
 
 # Secondary Cleaning
-
+## loading data
 ```{r}
 # # flow >> rename geographies, assign mutual geos to payscale data and census 
 # >> filter race data to groups we care about >> add entropy values >> join 
@@ -36,7 +36,7 @@ library(car)
 
 ### Filter payscale data by race
 # loading data
-load("~/statdiscrimination/alldata.RData")
+load("~/senior project/alldata.RData") # original dataset
 
 # subset based on 5 major race groups recognized by census
 # organize race
@@ -50,13 +50,16 @@ table(alldata$RACE_SET)
 ### read in census datasets
 # note cbsa_race10.csv in my filesystem is table P1, v2 is table P2 
 # from census bureau
+# cbsa_race10 is table p2 from 2010
 cbsa_race10 <- read.csv("cbsa_race10v2.csv")
+# cbsa_city is a reference table of major cities within each CBSA
 cbsa_city <- read_xls("cbsa_major_cities.xls", col_names = TRUE)
 cbsa_city <- cbsa_city[-c(1:2),] # gets rid of extra header
 names(cbsa_city) <- c("CBSA_code", "CBSA_title", "metro_micro_area", 
                       "principal_city", "FIPS_state", "FIPS_place")
 ```
 
+## renaming locations 
 ```{r}
 ### assigning a CBSA to each datapoint in alldata
 #recoding states in payscale data
@@ -118,8 +121,9 @@ alldata <- alldata %>%
     )
   )
 
-# recoding states in cbsa_city to LOCATION_STATE
-# needs to be numeric for logic
+# recoding states in cbsa_city (reference table) to match LOCATION_STATE in 
+# payscale data
+# needs to be numeric for case_when function
 cbsa_city$FIPS_state <- as.numeric(cbsa_city$FIPS_state)
 cbsa_city <- cbsa_city %>%
   mutate(
@@ -237,17 +241,21 @@ cbsa_city <- cbsa_city %>%
     )
   )
 
+# getting consistent city, state tags for payscale data
 alldata$citystate <- stringr::str_c(alldata$LOCATION_CITY, ", ", 
                                     alldata$LOCATION_STATE)
 # func to get state from cbsa titles
 # substrRight <- function(x, n){
 #   substr(x, nchar(x)-n+1, nchar(x))
 # }
+
+
+# gettting consistent city, state tags for cbsa reference table
 cbsa_city$citystate <- stringr::str_c(cbsa_city$principal_city, ", ",
                                       cbsa_city$LOCATION_STATE)
 
-# now cbsa_city and alldata have a column I can join by to insert metro
-# areas to alldata
+# now cbsa_city and alldata have a column I can use to join in official
+# metro/micro areas
 ```
 
 
@@ -257,7 +265,7 @@ cbsa_city$citystate <- stringr::str_c(cbsa_city$principal_city, ", ",
 ```{r}
 # adding metro areas to the payscale data via left join
 # only 56 datapoints don't fit into a metro/micro area
-cbsa_city_small <- cbsa_city[,c("CBSA_title", "citystate")]
+cbsa_city_small <- cbsa_city[,c("CBSA_title", "citystate", "metro_micro_area")]
 alldata <- alldata %>% left_join(cbsa_city_small, by = "citystate")
 alldata[,c("citystate", "LOCATION_CITY", "LOCATION_STATE")]
 ```
@@ -296,7 +304,7 @@ names(cbsa_race20) <- c("CBSA_title", "t_2020", "t_hispanic_2020",
 ```
 
 
-# creating entropy rate
+## creating entropy rate
 
 Recall Shannon's definition of information entropy: 
 $$ \sum p log(\frac{1}{p}) $$
@@ -349,7 +357,7 @@ cbsa_race20 <- cbsa_race20 %>%
 
 
 
-# joining census with payscale
+## joining census with payscale
 
 ```{r}
 # removing "micro area" and "metro area" suffix to census data to make join
@@ -377,13 +385,19 @@ alldata$d_entropy <- alldata$entropy20 - alldata$entropy10
 ```
 
 
-# calculating changes in race
+## calculating changes in race
 ```{r}
 alldata$d_white <- (alldata$t_white_2020 - alldata$t_white_2010) / alldata$t_white_2010
 alldata$d_black <- (alldata$t_black_2020 - alldata$t_black_2010) / alldata$t_black_2010
 alldata$d_hispanic <- (alldata$t_hispanic_2020 - alldata$t_hispanic_2010) / alldata$t_hispanic_2010
 alldata$d_native <- (alldata$t_native_2020 - alldata$t_native_2010) / alldata$t_native_2010
 alldata$d_asian <- (alldata$t_asian_2020 - alldata$t_asian_2010) / alldata$t_asian_2010
+```
+
+## filtering by age
+```{r}
+alldata2 <- alldata %>% filter(AGE>=22 & AGE <= 67)
+alldata <- alldata %>% filter(AGE>=24 & AGE <= 54)
 ```
 
 
@@ -595,8 +609,8 @@ summary(lm6)
 ## Change in hispanic
 ```{r}
 # with entropy and gender
-lm7 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
-            RACE_SET + LOCATION_STATE + GENDER * d_hispanic, 
+lm7 <- lm(log(SALARY) ~ GENDER + GENDER * d_hispanic + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
           data = alldata)
 summary(lm7)
 ```
@@ -613,11 +627,85 @@ summary(lm8)
 ## Change in asian
 ```{r}
 # with entropy and gender
-lm9 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
-            RACE_SET + LOCATION_STATE + GENDER * d_asian, 
+lm9 <- lm(log(SALARY) ~ GENDER + GENDER * d_asian + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
           data = alldata)
 summary(lm9)
 ```
+
+
+# robustness checks
+
+## factoring data
+```{r}
+# factor highest education, no higher education will be baseline
+alldata2$highest <- relevel(as.factor(alldata2$highest), ref = "none")
+# factor race, white will be baseline
+alldata2$RACE_SET <- relevel(as.factor(alldata2$RACE_SET), ref = "White")
+# factor gender, male will be baseline
+alldata2$GENDER <- relevel(as.factor(alldata2$GENDER), ref = "Male")
+
+```
+
+## Results with larger age range
+```{r}
+## gender * entropy
+lm10 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_entropy, 
+          data = alldata2)
+summary(lm10)
+
+## change in Hispanic prop
+lm11 <- lm(log(SALARY) ~ GENDER + GENDER * d_hispanic + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
+          data = alldata2)
+summary(lm11)
+
+  ## change in White prop
+  lm12 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+              RACE_SET + LOCATION_STATE + GENDER * d_white, 
+            data = alldata2)
+  summary(lm12)
+
+# Change in Black prop
+lm13 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_black, 
+          data = alldata2)
+summary(lm13)
+
+## change in asian prop
+lm14 <- lm(log(SALARY) ~ GENDER + GENDER * d_asian + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
+          data = alldata2)
+summary(lm14)
+
+## change in native american prop
+lm15 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_native, 
+          data = alldata2)
+summary(lm15)
+```
+
+
+## results for metropolitan only
+```{r}
+lm16 <- lm(log(SALARY) ~ GENDER + GENDER * d_hispanic + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
+          data = filter(alldata, ))
+summary(lm16)
+```
+
+
+## results for micropolitan only
+
+
+## results for high school only
+
+
+## results for higher ed only
+
+
+
 
 
 \newpage
