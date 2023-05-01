@@ -19,6 +19,7 @@ library(Hmisc)
 library(heplots)
 library(ggplot2)
 library(ggExtra)
+library(gridExtra)
 library(caret)
 library(class)
 library(kableExtra)
@@ -786,12 +787,14 @@ stargazer:: stargazer(
 ```{r}
 # a marginal effect plot of the gender gap based on change in entropy
 me_interaction <- interplot(lm4, var1 = "GENDER", var2 = "d_entropy",
-                            facet_labs = "", rfill = "blue")+ 
+                            facet_labs = "", rfill = "#63aaff")+ 
   # Add labels for X and Y axes
   xlab("Change in Entropy") +
   ylab("Estimated Coefficient for Female Indicator") +
   theme(text = element_text(size = 15)) +
-  scale_x_continuous(breaks = seq(-0.2,0.6,0.1))
+  scale_x_continuous(breaks = seq(-0.2,0.6,0.1)) +
+  theme_classic() + 
+  theme(strip.background = element_blank())
 ggsave(
   "me_interaction.png",
   plot = last_plot(),
@@ -827,8 +830,14 @@ gender_comparisons <- ggplot(data=alldata, aes(RACE_SET, SALARY, fill = GENDER))
   geom_bar(position = "dodge",
            stat = "summary",
            fun = "mean") + 
-  theme(axis.text.x = element_text(size=15, angle=90)) +
-  scale_x_discrete(labels=c("White", "Native \n American", "Asian", "Black", "Hispanic"))
+  theme_classic() +
+  theme(axis.text.x = element_text(size=15, angle=0),
+        legend.position = c(0.75,0.95),
+        legend.title = element_blank()) +
+  scale_x_discrete(labels=c("White", "Native \n American", "Asian", "Black", "Hispanic")) +
+  scale_fill_manual(values=c("#00356b", "#5f712d"))+
+  coord_cartesian(ylim=c(0,82500)) +
+  scale_y_continuous(position="right")
 ggsave(
   "gender_comparisons.png",
   plot = last_plot(),
@@ -890,18 +899,23 @@ ggsave(
 )
 
 # gender pay gap barplot
-gender_gap <- ggplot(data=alldata, aes(GENDER, SALARY, fill = GENDER)) +           # ggplot2 barplot with mean
+gender_gap <- ggplot(data=alldata, aes(GENDER, SALARY, fill = GENDER)) + 
   geom_bar(position = "dodge",
            stat = "summary",
            fun = "mean", 
-           show.legend = FALSE) + 
-  theme(axis.text.x = element_text(size=15)) +
-  coord_flip()
+           show.legend = FALSE) +
+  theme_classic() + 
+  theme(axis.text.x = element_text(size=15),
+        axis.text.y = element_blank()) +
+  scale_fill_manual(values=c("#00356b", "#5f712d")) +
+  coord_cartesian(ylim=c(0,82500)) +
+  scale_x_discrete(labels=c("\n Male", "\n Female"))
+  #coord_flip(ylim=c(0,82599))
 ggsave(
   "gender_gap.png",
   plot = last_plot(),
-  width = 8,
-  height = 4,
+  width = 3.25,
+  height =8,
   units = "in",
   dpi = 300,
   limitsize = TRUE,
@@ -978,22 +992,6 @@ ggsave(
 )
 
 
-# fake data for results
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 avg_data <- alldata %>% group_by(YEAR) %>%
   summarise(mean_C1 = mean(t_white_2010/t_2020))
 
@@ -1009,4 +1007,68 @@ ggplot(avg_data, aes(YEAR, mean_C1)) +
 # ggplot(avg_data, aes(YEAR, mean_C1)) +
 #   geom_point()
 ```
+
+
+
+```{r}
+race_time1 <- ggplot() +
+  geom_line(aes(x=c(2010, 2020), 
+                y = c(mean(cbsa_race10$t_black_2010/cbsa_race10$t_2010),
+                           mean(cbsa_race20$t_black_2020/cbsa_race20$t_2020))),
+            color = "#785EF0", size = 1) +
+  geom_line(aes(x=c(2010, 2020), 
+                y = c(mean(cbsa_race10$t_asian_2010/cbsa_race10$t_2010),
+                      mean(cbsa_race20$t_asian_2020/cbsa_race20$t_2020))),
+            color = "#DC267F", size = 1) +
+  geom_line(aes(x=c(2010, 2020), 
+                y = c(mean(cbsa_race10$t_hispanic_2010/cbsa_race10$t_2010),
+                      mean(cbsa_race20$t_hispanic_2020/cbsa_race20$t_2020))),
+            color = "#FE6100", size = 1) +
+  geom_line(aes(x=c(2010, 2020), 
+                y = c(mean(cbsa_race10$t_native_2010/cbsa_race10$t_2010),
+                      mean(cbsa_race20$t_native_2020/cbsa_race20$t_2020))),
+            color = "#FFB000", size = 1) +
+  scale_x_continuous(breaks = c(2010, 2020)) +
+  xlab("Year") +
+  ylab("Proportion of Population") +
+  ggtitle("I need to add a legend")
+```
+
+
+
+
+
+```{r}
+grid.arrange(gender_gap, gender_comparisons,
+             layout_matrix = rbind(c(1,1,2,2,2,2,2),
+                                   c(1,1,2,2,2,2,2),
+                                   c(1,1,2,2,2,2,2),
+                                   c(1,1,2,2,2,2,2)))
+
+
+mfdf <- data.frame(
+  SALARY = c(
+    mean(
+      alldata$SALARY[alldata$GENDER == "Male"],
+      na.rm = TRUE
+      ),
+    mean(
+      alldata$SALARY[alldata$GENDER == "Female"],
+      na.rm = TRUE
+      )
+    ),
+  GENDER = c("Male", "Female"))
+
+
+df <- data.frame(dose=c("Male", "Female"),
+                len=c(4.2, 10))
+df2 <- data.frame(dose=c("extra"), len = c(5))
+ggplot() +
+  geom_bar(data = df, aes(x=dose, y=len), stat="identity") +
+  geom_bar(data = df2, aes(x=dose, y=len), stat="identity")
+
+
+
+```
+
 
