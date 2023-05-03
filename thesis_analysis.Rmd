@@ -25,6 +25,7 @@ library(class)
 library(kableExtra)
 library(knitr)
 library(car)
+library(ggeffects)
 #library(interplot)
 #test2
 ```
@@ -622,6 +623,24 @@ lm7 <- lm(log(SALARY) ~ GENDER + GENDER * d_hispanic + AGE + YRS_EXP + highest +
 summary(lm7)
 ```
 
+```{r}
+## southwest only
+alldata$sw <- alldata$LOCATION_STATE %in% 
+  c("TX", "NM", "AZ", "CA")
+table(alldata$sw)
+
+lmsw <- lm(log(SALARY) ~ GENDER + GENDER * d_hispanic + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
+          data = alldata[alldata$sw==TRUE,])
+summary(lmsw)
+
+lmnsw <- lm(log(SALARY) ~ GENDER + GENDER * d_hispanic + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
+          data = alldata[alldata$sw==FALSE,])
+summary(lmnsw)
+```
+
+
 ## Change in native american
 ```{r}
 # with entropy and gender
@@ -960,12 +979,13 @@ coef_plot <- ggplot(results,
                      ymax = conf.high_95),
                    lwd = 1/2) + 
         ggtitle("Estimated Effects of Gender and Entropy Change") +
+        scale_x_discrete(labels = c("Entropy Change", "Female", "Entropy-Female Interaction")) +
         coord_flip()
 ggsave(
   "coef_plot.png",
   plot = last_plot(),
   width = 8,
-  height = 4,
+  height = 5,
   units = "in",
   dpi = 300,
   limitsize = TRUE,
@@ -979,12 +999,14 @@ entropy_hist <- ggplot(alldata, aes(x=d_entropy)) +
             linetype="dashed",
             show.legend = FALSE) +
   scale_x_continuous(breaks = seq(-.1, .4, .1)) +
-  xlim(-.1,.4)
+  xlim(-.1,.4) +
+  ylab("Number of Observations") +
+  xlab("Change in Entropy for Observation")
 ggsave(
   "entropy_hist.png",
   plot = last_plot(),
   width = 8,
-  height = 4,
+  height = 5,
   units = "in",
   dpi = 300,
   limitsize = TRUE,
@@ -1011,34 +1033,63 @@ ggplot(avg_data, aes(YEAR, mean_C1)) +
 
 
 ```{r}
-race_time1 <- ggplot() +
-  geom_line(aes(x=c(2010, 2020), 
-                y = c(mean(cbsa_race10$t_black_2010/cbsa_race10$t_2010),
-                           mean(cbsa_race20$t_black_2020/cbsa_race20$t_2020))),
-            color = "#785EF0", size = 1) +
-  geom_line(aes(x=c(2010, 2020), 
-                y = c(mean(cbsa_race10$t_asian_2010/cbsa_race10$t_2010),
-                      mean(cbsa_race20$t_asian_2020/cbsa_race20$t_2020))),
-            color = "#DC267F", size = 1) +
-  geom_line(aes(x=c(2010, 2020), 
-                y = c(mean(cbsa_race10$t_hispanic_2010/cbsa_race10$t_2010),
-                      mean(cbsa_race20$t_hispanic_2020/cbsa_race20$t_2020))),
-            color = "#FE6100", size = 1) +
-  geom_line(aes(x=c(2010, 2020), 
-                y = c(mean(cbsa_race10$t_native_2010/cbsa_race10$t_2010),
-                      mean(cbsa_race20$t_native_2020/cbsa_race20$t_2020))),
-            color = "#FFB000", size = 1) +
-  scale_x_continuous(breaks = c(2010, 2020)) +
-  xlab("Year") +
-  ylab("Proportion of Population") +
-  ggtitle("I need to add a legend")
+mean(alldata$t_black_2010/alldata$t_2010)
+mean(alldata$t_black_2020/alldata$t_2020)
+mean(alldata$t_asian_2010/alldata$t_2010)
+mean(alldata$t_asian_2020/alldata$t_2020)
+mean(alldata$t_hispanic_2010/alldata$t_2010)
+mean(alldata$t_hispanic_2020/alldata$t_2020)
+mean(alldata$t_native_2010/alldata$t_2010)
+mean(alldata$t_native_2020/alldata$t_2020)
+mean(alldata$t_white_2010/alldata$t_2010)
+mean(alldata$t_white_2020/alldata$t_2020)
+
+```
+
+
+
+
+```{r}
+# entropy effect across educations
+
+ent_edu <- ggpredict(lm4, 
+          terms = c("d_entropy"),
+          condition = c(GENDER = "Male"),) %>%
+  plot(colors = c("#555599")) +
+  labs(title = "", x ="Change in Entropy", y = "Predicted Wage") +
+  scale_color_manual(values = 1) +
+  theme_classic()
+
+ggsave(
+  "ent_edu.png",
+  plot = last_plot(),
+  width = 8,
+  height = 5,
+  units = "in",
+  dpi = 300,
+  limitsize = TRUE,
+  bg = NULL,
+)
 ```
 
 
 
 
 
+
+
+
+
+
+
+
+
+
+
 ```{r}
+##############
+# testing
+##############
 grid.arrange(gender_gap, gender_comparisons,
              layout_matrix = rbind(c(1,1,2,2,2,2,2),
                                    c(1,1,2,2,2,2,2),
@@ -1066,6 +1117,9 @@ df2 <- data.frame(dose=c("extra"), len = c(5))
 ggplot() +
   geom_bar(data = df, aes(x=dose, y=len), stat="identity") +
   geom_bar(data = df2, aes(x=dose, y=len), stat="identity")
+
+
+
 
 
 
