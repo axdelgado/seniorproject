@@ -3,14 +3,14 @@ title: "Data Processing"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include=FALSE, echo=FALSE}
+require("knitr")
+opts_knit$set(root.dir = "~/statdiscrimination")
 ```
 
 ```{r message=FALSE}
 #working directory
 rm(list=ls())
-setwd("~/statdiscrimination")
 
 # packages
 library(tidyverse)
@@ -311,15 +311,14 @@ alldata$highest <- educ$highest
 # Filtering by age
 ```{r}
 # keeping ages 24 to 54, exlcuding first-time hires and workforce vets
-alldata2 <- alldata # create copy without age filtering
-alldata <- alldata %>% filter(AGE>=24 & AGE <= 54)
+# alldata2 <- alldata # create copy without age filtering
+# alldata <- alldata %>% filter(AGE>=24 & AGE <= 54)
 ```
 
 
 # Saving data into a .RData and .csv
 ```{r}
-save(alldata, file = "~/senior project/alldata.Rdata")
-save(alldata2, file = "~/senior project/alldata_allage.Rdata") #filesize ~ 0.12 GB
+save(alldata, file = "~/senior project/alldata.Rdata") #filesize ~ 0.12 GB
 # write.csv(alldata, "alldata.csv") filesize ~ 1.2 GB, yikes!
 ```
 
