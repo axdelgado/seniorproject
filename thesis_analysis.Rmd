@@ -773,9 +773,11 @@ stargazer:: stargazer(
   no.space= TRUE,
   omit.stat=c("LL","ser","f"),
   covariate.labels = c("Female", "Age", "Years of Experience", 
-                       "graduate degree", "Professional Degree", 
+                       "Graduate degree", "Professional Degree", 
                        "Undergrad Degree", "Native American", "Asian", 
-                       "Black", "Hispanic", "Entropy")
+                       "Black", "Hispanic", "Entropy"),
+  dep.var.caption  = "Dependent Variable",
+  dep.var.labels   = "Log Salary"
 )
 
 ```
@@ -791,7 +793,7 @@ stargazer:: stargazer(
   notes.align = "l",
   single.row = FALSE,
   notes.label = "",
-  no.space= TRUE,
+  no.space= FALSE,
   omit.stat=c("LL","ser","f")#,
   # covariate.labels = c("Female", "Age", "Years of Experience", 
   #                      "graduate degree", "Professional Degree", 
@@ -849,14 +851,16 @@ gender_comparisons <- ggplot(data=alldata, aes(RACE_SET, SALARY, fill = GENDER))
   geom_bar(position = "dodge",
            stat = "summary",
            fun = "mean") + 
-  theme_classic() +
+  theme_classic() + 
+  ggtitle("Figure 3: Gender Gap by Race/Ethnicity") +
+  xlab("Race/Ethnicity") +
   theme(axis.text.x = element_text(size=15, angle=0),
         legend.position = c(0.75,0.95),
         legend.title = element_blank()) +
   scale_x_discrete(labels=c("White", "Native \n American", "Asian", "Black", "Hispanic")) +
   scale_fill_manual(values=c("#00356b", "#5f712d"))+
   coord_cartesian(ylim=c(0,82500)) +
-  scale_y_continuous(position="right")
+  scale_y_continuous(position="left")
 ggsave(
   "gender_comparisons.png",
   plot = last_plot(),
