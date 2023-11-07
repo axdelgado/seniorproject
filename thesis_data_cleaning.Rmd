@@ -1,0 +1,341 @@
+---
+title: "Data Processing"
+output: html_document
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+require("knitr")
+opts_knit$set(root.dir = "~/statdiscrimination")
+```
+
+```{r message=FALSE}
+#working directory
+rm(list=ls())
+
+# packages
+library(tidyverse)
+library(readxl)
+library(lattice)
+library(Hmisc)
+library(lubridate)
+```
+
+# Reading data:
+```{r warning=FALSE}
+# loading in data
+df_2015 <- rbind(read_xlsx("data/2015.xlsx"), read_xlsx("data/2015b.xlsx"))
+df_2016 <- read_xlsx("data/2016.xlsx")
+df_2017 <- rbind(read_xlsx("data/2017.xlsx"), read_xlsx("data/2017b.xlsx"))
+df_2018 <- rbind(read_xlsx("data/2018a.xlsx"),
+                 read_xlsx("data/2018b.xlsx"),
+                 read_xlsx("data/2018c.xlsx"))
+df_2019 <- rbind(read_xlsx("data/2019a.xlsx"),
+                 read_xlsx("data/2019b.xlsx"),
+                 read_xlsx("data/2019c.xlsx"))
+df_2020 <- read_xlsx("data/2020.xlsx")
+```
+
+
+# cleaning gender
+```{r}
+table(df_2015$GENDER)
+```
+
+```{r}
+### getting consistent gender labels ###
+# coding NAs as "Missing"
+df_2015$GENDER[is.na(df_2015$GENDER)] <- "Missing"
+df_2016$GENDER[is.na(df_2016$GENDER)] <- "Missing"
+df_2017$GENDER[is.na(df_2017$GENDER)] <- "Missing"
+df_2018$GENDER[is.na(df_2018$GENDER)] <- "Missing"
+df_2019$GENDER[is.na(df_2019$GENDER)] <- "Missing"
+df_2020$GENDER[is.na(df_2020$GENDER)] <- "Missing"
+
+# replacing the rest as "Other"
+df_2015$GENDER[!(df_2015$GENDER %in% c("Female","Male","Missing"))] <- "Other"
+df_2016$GENDER[!(df_2016$GENDER %in% c("Female","Male","Missing"))] <- "Other"
+df_2017$GENDER[!(df_2017$GENDER %in% c("Female","Male","Missing"))] <- "Other"
+df_2018$GENDER[!(df_2018$GENDER %in% c("Female","Male","Missing"))] <- "Other"
+df_2019$GENDER[!(df_2019$GENDER %in% c("Female","Male","Missing"))] <- "Other"
+df_2020$GENDER[!(df_2020$GENDER %in% c("Female","Male","Missing"))] <- "Other"
+
+
+### below doesn't work
+# dfList <- list(df_2015, df_2016, df_2017, df_2018, df_2019, df_2020)
+# lapply(dfList, function(x){
+#   x$GENDER[!(x$GENDER %in% c("Female", "Male", NA))] <- "Other"
+# })
+# 
+# table(df_2015$GENDER)
+
+```
+
+# Cleaning manager_relationship
+
+Note: a scale from Strongly Disagree to Strongly Agree
+```{r}
+# prepping data for merging
+df_2018$MANAGER_RELATIONSHIP <- as.numeric(substr(df_2018$MANAGER_RELATIONSHIP,1,1))
+df_2019$MANAGER_RELATIONSHIP <- as.numeric(substr(df_2019$MANAGER_RELATIONSHIP,1,1))
+df_2020$MANAGER_RELATIONSHIP <- as.numeric(substr(df_2020$MANAGER_RELATIONSHIP,1,1))
+```
+
+# Cleaning fair_pay
+
+Note: a scale from Strongly Disagree to Strongly Agree
+```{r}
+df_2018$FAIR_PAY <- as.numeric(substr(df_2018$FAIR_PAY,1,1))
+df_2019$FAIR_PAY <- as.numeric(substr(df_2019$FAIR_PAY,1,1))
+df_2020$FAIR_PAY <- as.numeric(substr(df_2020$FAIR_PAY,1,1))
+```
+
+
+```{r}
+nrow(df_2015)
+sum(is.na(df_2015$FAIR_PAY))
+
+nrow(df_2016)
+sum(is.na(df_2016$FAIR_PAY))
+
+nrow(df_2017)
+sum(is.na(df_2017$FAIR_PAY))
+
+nrow(df_2018)
+sum(is.na(df_2018$FAIR_PAY))
+
+nrow(df_2019)
+sum(is.na(df_2019$FAIR_PAY))
+
+nrow(df_2020)
+sum(is.na(df_2020$FAIR_PAY))
+
+
+
+summary(df_2016$FAIR_PAY)
+barchart(df_2015$FAIR_PAY)
+```
+
+Note: almost all data for fair_pay is missing in 2015 & 2016. 
+
+# Cleaning employer_satisfaction
+
+Note: a scale from Strongly Disagree to Strongly Agree
+```{r}
+df_2018$EMPLOYER_SATISFACTION <- as.numeric(substr(df_2018$EMPLOYER_SATISFACTION,1,1))
+df_2019$EMPLOYER_SATISFACTION <- as.numeric(substr(df_2019$EMPLOYER_SATISFACTION,1,1))
+df_2020$EMPLOYER_SATISFACTION <- as.numeric(substr(df_2020$EMPLOYER_SATISFACTION,1,1))
+```
+
+
+```{r}
+nrow(df_2015)
+sum(is.na(df_2015$EMPLOYER_SATISFACTION))
+
+nrow(df_2016)
+sum(is.na(df_2016$EMPLOYER_SATISFACTION))
+
+nrow(df_2017)
+sum(is.na(df_2017$EMPLOYER_SATISFACTION))
+
+nrow(df_2018)
+sum(is.na(df_2018$EMPLOYER_SATISFACTION))
+
+nrow(df_2019)
+sum(is.na(df_2019$EMPLOYER_SATISFACTION))
+
+nrow(df_2020)
+sum(is.na(df_2020$EMPLOYER_SATISFACTION))
+```
+
+# Cleaning transparent_pay
+```{r}
+# pre-transformation barcharts to make sure I didn't mess up
+barchart(df_2018$TRANSPARENT_PAY)
+barchart(df_2019$TRANSPARENT_PAY)
+barchart(df_2020$TRANSPARENT_PAY)
+```
+
+```{r}
+# applying transformations
+df_2018$TRANSPARENT_PAY <- as.numeric(substr(df_2018$TRANSPARENT_PAY,1,1))
+df_2019$TRANSPARENT_PAY <- as.numeric(substr(df_2019$TRANSPARENT_PAY,1,1))
+df_2020$TRANSPARENT_PAY <- as.numeric(substr(df_2020$TRANSPARENT_PAY,1,1))
+
+# post transformation barcharts
+barchart(as.factor(df_2018$TRANSPARENT_PAY))
+barchart(as.factor(df_2019$TRANSPARENT_PAY))
+barchart(as.factor(df_2020$TRANSPARENT_PAY))
+```
+
+
+# Cleaning phdyr_graduated
+```{r}
+df_2018$PHDYR_GRADUATED <- as.factor(df_2018$PHDYR_GRADUATED)
+df_2019$PHDYR_GRADUATED <- as.factor(df_2019$PHDYR_GRADUATED)
+df_2020$PHDYR_GRADUATED <- as.factor(df_2020$PHDYR_GRADUATED)
+# need to account for did not graduate, look more at data struc
+```
+
+# Cleaning mbayr_graduated
+```{r}
+df_2018$MBAYR_GRADUATED <- as.factor(df_2018$MBAYR_GRADUATED)
+df_2019$MBAYR_GRADUATED <- as.factor(df_2019$MBAYR_GRADUATED)
+df_2020$MBAYR_GRADUATED <- as.factor(df_2020$MBAYR_GRADUATED)
+```
+
+# Binding all rows
+```{r}
+alldata <- bind_rows(df_2015, df_2016, df_2017, df_2018, df_2019, df_2020)
+str(alldata)
+```
+
+# Cleaning yrs_exp
+
+```{r}
+# replacing negative values with NA
+alldata <- alldata %>% 
+  mutate(YRS_EXP = replace(alldata$YRS_EXP, alldata$YRS_EXP < 0, NA))
+```
+
+# Checking TCC
+```{r}
+describe(alldata$TCC)
+ggplot(data=alldata) +
+  geom_density(aes(x=TCC), fill = 'steelblue', alpha = 0.7) +
+  xlim(c(0,401622))
+```
+
+```{r}
+# checking if high-paying jobs concentrate in certain roles
+alldata %>%
+  filter(TCC > quantile(alldata$TCC, 0.99, na.rm = TRUE)) %>%
+  {table(.$ONET_BROAD)} %>% sort(decreasing=TRUE) # filtered by 99th data percentile
+
+alldata %>%
+  filter(TCC > 401622) %>%
+  {table(.$ONET_BROAD)} %>% sort(decreasing=TRUE) # filtered by 2020 99th percentile
+
+```
+
+The majority of outliers are chief executives, physicians, lawyers, operations 
+managers, sales managers, financial analysts, and management analysts. Since
+they're mostly uniformly in the same career area (upper management), we can just
+use the 2020 99th percentile as a cutoff for our data.
+
+# Filtering out top 1%
+```{r}
+alldata <- alldata %>% filter(TCC < 401622)
+```
+
+I will also filter out data that have a TCC lower than 2080*7.25, i.e. below
+a yearly salary for someone working a full time job that pays the federal 
+minumum wage. This will decrease the likelihood that we are looking at data for
+part time workers.
+
+```{r}
+alldata <- alldata %>% filter(TCC > 15080)
+```
+
+
+# Creating SHB Col
+```{r}
+# first, logging dates that the bans went into effect
+head(alldata$UPDATE_DATE)
+head(alldata$UPDATE_DATE) > (as_date("2016-01-06") + months(1))
+
+alldata <- alldata %>% 
+  mutate(
+    SHB = case_when(
+      LOCATION_STATE == "Oregon" & UPDATE_DATE > (as_date("2017-10-06") + months(6)) ~ 1,
+      LOCATION_STATE == "District of Columbia" & UPDATE_DATE > (as_date("2017-11-01") + months(6)) ~ 1,
+      LOCATION_STATE == "Delaware" & UPDATE_DATE > (as_date("2017-12-14") + months(6)) ~ 1,
+      LOCATION_STATE == "California" & UPDATE_DATE > (as_date("2018-01-01") + months(6)) ~ 1,
+      LOCATION_STATE == "Massachusetts" & UPDATE_DATE > (as_date("2018-07-01") + months(6)) ~ 1,
+      LOCATION_STATE == "Vermont" & UPDATE_DATE > (as_date("2018-07-01") + months(6)) ~ 1,
+      LOCATION_STATE == "Connecticut" & UPDATE_DATE > (as_date("2019-01-01") + months(6)) ~ 1,
+      LOCATION_STATE == "Hawaii" & UPDATE_DATE > (as_date("2019-01-01") + months(6)) ~ 1,
+      LOCATION_STATE == "Michigan" & UPDATE_DATE > (as_date("2019-01-15") + months(6)) ~ 1,
+      LOCATION_STATE == "North Carolina" & UPDATE_DATE > (as_date("2019-04-02") + months(6)) ~ 1,
+      LOCATION_STATE == "Washington" & UPDATE_DATE > (as_date("2019-07-28") + months(6)) ~ 1,
+      LOCATION_STATE == "Maine" & UPDATE_DATE > (as_date("2019-09-17") + months(6)) ~ 1,
+      LOCATION_STATE == "Alabama" & UPDATE_DATE > (as_date("2019-09-01") + months(6)) ~ 1,
+      # Illinois had a state-employer SHB starting on Jan 15 2019
+      LOCATION_STATE == "Illinois" & UPDATE_DATE > (as_date("2019-09-29") + months(6)) ~ 1,
+      # jersey had a state-employer SHB starting on Feb 1 2018
+      LOCATION_STATE == "New Jersey" & UPDATE_DATE > (as_date("2020-01-01") + months(6)) ~ 1,
+      # New York had a state-employer SHB starting on Jan 9 2017
+      LOCATION_STATE == "New York" & UPDATE_DATE > (as_date("2020-01-06") + months(6)) ~ 1,
+      LOCATION_STATE == "Maryland" & UPDATE_DATE > (as_date("2020-10-01") + months(6)) ~ 1,
+      LOCATION_STATE == "Colorado" & UPDATE_DATE > (as_date("2021-01-01") + months(6)) ~ 1,
+      LOCATION_STATE == "Nevada" & UPDATE_DATE > (as_date("2021-10-01") + months(6)) ~ 1,
+      LOCATION_STATE == "Rhode Island" & UPDATE_DATE > (as_date("2022-01-01") + months(6)) ~ 1,
+      TRUE ~ 0
+    )
+  )
+
+# checking
+# alldata %>% select(UPDATE_DATE, LOCATION_STATE, SHB) %>% filter(UPDATE_DATE > "2019-01-01")
+```
+
+# Creating educ col
+```{r}
+# this will add a column, educ, which specifies the highest level of 
+# educational attainment.
+# this will have categories like highschool, undergraduate degree, professional
+# degree, etc.
+
+educ <- alldata[,c("EDU_LVL")] # subsetting data
+
+# creating boolean indicators, grouping degrees together
+educ$undergrad <- educ$EDU_LVL %in% c("Associate's Degree", "Bachelor's Degree")
+educ$professional <- educ$EDU_LVL %in% c("Health Professional Doctorate (MD, DMD, DVM, DPT, etc.)",
+                                         "Health Professional Doctorate (MD, DMD, DVM, etc.)",
+                                         "Master of Business Administration (MBA)",
+                                         "Law Degree (JD, LLM)")
+educ$graduate <- educ$EDU_LVL %in% c("Doctorate (PhD)", 
+                                     "Master's Degree (non-MBA)")
+educ$none <- educ$EDU_LVL %in% c("No Degree", "Non-Degree Certificate Program",
+                                 "High School Diploma or GED")
+
+# new row of highest degree labels
+educ <- educ %>%
+  mutate(highest = case_when(undergrad == 1 ~ "undergrad",
+                            professional == 1 ~ "professional",
+                            graduate == 1 ~ "graduate",
+                            none == 1 ~ "none"))
+
+alldata$highest <- educ$highest
+```
+
+
+# Filtering by age
+```{r}
+# keeping ages 24 to 54, exlcuding first-time hires and workforce vets
+# alldata2 <- alldata # create copy without age filtering
+# alldata <- alldata %>% filter(AGE>=24 & AGE <= 54)
+```
+
+
+# Saving data into a .RData and .csv
+```{r}
+save(alldata, file = "~/senior project/alldata.Rdata") #filesize ~ 0.12 GB
+# write.csv(alldata, "alldata.csv") filesize ~ 1.2 GB, yikes!
+```
+
+
+```{r}
+######### unnecessary code chunk, leaving for reference
+# saving data for easy loading next time
+# use load() to load data
+# save(
+#   df_2015,
+#   df_2016,
+#   df_2017,
+#   df_2018,
+#   df_2019,
+#   df_2020,
+#   file="allyears.RData"
+# )
+```
+ 
+ 

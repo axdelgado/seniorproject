@@ -1,6 +1,8 @@
 ---
 title: "Thesis Analysis"
-output: pdf_document
+output: 
+  pdf_document:
+    keep_tex: yes
 date: "2023-02-22"
 ---
 
@@ -9,21 +11,27 @@ date: "2023-02-22"
 #test
 knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
+setwd("~/senior project")
 library(readxl)
 library(tidyverse)
 library(lubridate)
 library(Hmisc)
 library(heplots)
+library(ggplot2)
 library(ggExtra)
+library(gridExtra)
 library(caret)
 library(class)
 library(kableExtra)
 library(knitr)
+library(car)
+library(ggeffects)
+#library(interplot)
 #test2
 ```
 
 # Secondary Cleaning
-
+## loading data
 ```{r}
 # # flow >> rename geographies, assign mutual geos to payscale data and census 
 # >> filter race data to groups we care about >> add entropy values >> join 
@@ -33,7 +41,7 @@ library(knitr)
 
 ### Filter payscale data by race
 # loading data
-load("~/statdiscrimination/alldata.RData")
+load("~/senior project/alldata.RData") # original dataset
 
 # subset based on 5 major race groups recognized by census
 # organize race
@@ -47,13 +55,16 @@ table(alldata$RACE_SET)
 ### read in census datasets
 # note cbsa_race10.csv in my filesystem is table P1, v2 is table P2 
 # from census bureau
+# cbsa_race10 is table p2 from 2010
 cbsa_race10 <- read.csv("cbsa_race10v2.csv")
+# cbsa_city is a reference table of major cities within each CBSA
 cbsa_city <- read_xls("cbsa_major_cities.xls", col_names = TRUE)
 cbsa_city <- cbsa_city[-c(1:2),] # gets rid of extra header
 names(cbsa_city) <- c("CBSA_code", "CBSA_title", "metro_micro_area", 
                       "principal_city", "FIPS_state", "FIPS_place")
 ```
 
+## renaming locations 
 ```{r}
 ### assigning a CBSA to each datapoint in alldata
 #recoding states in payscale data
@@ -115,8 +126,9 @@ alldata <- alldata %>%
     )
   )
 
-# recoding states in cbsa_city to LOCATION_STATE
-# needs to be numeric for logic
+# recoding states in cbsa_city (reference table) to match LOCATION_STATE in 
+# payscale data
+# needs to be numeric for case_when function
 cbsa_city$FIPS_state <- as.numeric(cbsa_city$FIPS_state)
 cbsa_city <- cbsa_city %>%
   mutate(
@@ -234,17 +246,21 @@ cbsa_city <- cbsa_city %>%
     )
   )
 
+# getting consistent city, state tags for payscale data
 alldata$citystate <- stringr::str_c(alldata$LOCATION_CITY, ", ", 
                                     alldata$LOCATION_STATE)
 # func to get state from cbsa titles
 # substrRight <- function(x, n){
 #   substr(x, nchar(x)-n+1, nchar(x))
 # }
+
+
+# gettting consistent city, state tags for cbsa reference table
 cbsa_city$citystate <- stringr::str_c(cbsa_city$principal_city, ", ",
                                       cbsa_city$LOCATION_STATE)
 
-# now cbsa_city and alldata have a column I can join by to insert metro
-# areas to alldata
+# now cbsa_city and alldata have a column I can use to join in official
+# metro/micro areas
 ```
 
 
@@ -254,9 +270,9 @@ cbsa_city$citystate <- stringr::str_c(cbsa_city$principal_city, ", ",
 ```{r}
 # adding metro areas to the payscale data via left join
 # only 56 datapoints don't fit into a metro/micro area
-cbsa_city_small <- cbsa_city[,c("CBSA_title", "citystate")]
+cbsa_city_small <- cbsa_city[,c("CBSA_title", "citystate", "metro_micro_area")]
 alldata <- alldata %>% left_join(cbsa_city_small, by = "citystate")
-alldata[,c("citystate", "LOCATION_CITY", "LOCATION_STATE")]
+# alldata[,c("citystate", "LOCATION_CITY", "LOCATION_STATE")]
 ```
 
 ```{r}
@@ -293,7 +309,7 @@ names(cbsa_race20) <- c("CBSA_title", "t_2020", "t_hispanic_2020",
 ```
 
 
-# creating entropy rate
+## creating entropy rate
 
 Recall Shannon's definition of information entropy: 
 $$ \sum p log(\frac{1}{p}) $$
@@ -340,10 +356,13 @@ cbsa_race20 <- cbsa_race20 %>%
   mutate(
     entropy20 = apply(cbsa_race20, 1, entropyrate)
   )
+
 ```
 
 
-# joining census with payscale
+
+
+## joining census with payscale
 
 ```{r}
 # removing "micro area" and "metro area" suffix to census data to make join
@@ -364,8 +383,27 @@ cbsa_race20$CBSA_title <- gsub(" Metro Area","", cbsa_race20$CBSA_title)
 cbsa_race20$CBSA_title <- str_trim(cbsa_race20$CBSA_title) # weird but nec
 # inner join 2020 census with payscale data
 alldata <- alldata %>% inner_join(cbsa_race20, by = "CBSA_title")
+
+
+# calculating entropy change over decade
+alldata$d_entropy <- alldata$entropy20 - alldata$entropy10
 ```
 
+
+## calculating changes in race
+```{r}
+alldata$d_white <- (alldata$t_white_2020 - alldata$t_white_2010) / alldata$t_white_2010
+alldata$d_black <- (alldata$t_black_2020 - alldata$t_black_2010) / alldata$t_black_2010
+alldata$d_hispanic <- (alldata$t_hispanic_2020 - alldata$t_hispanic_2010) / alldata$t_hispanic_2010
+alldata$d_native <- (alldata$t_native_2020 - alldata$t_native_2010) / alldata$t_native_2010
+alldata$d_asian <- (alldata$t_asian_2020 - alldata$t_asian_2010) / alldata$t_asian_2010
+```
+
+## filtering by age
+```{r}
+alldata2 <- alldata %>% filter(AGE>=18 & AGE <= 67)
+alldata <- alldata %>% filter(AGE>=24 & AGE <= 54)
+```
 
 
 # Descriptive statistics
@@ -409,10 +447,10 @@ gender_pay_quantiles <- function(df) {
   tempmatrix <- matrix(ncol = 0, nrow = 4)
   # differentiate between male and female
   male_quantiles <- df %>% 
-    filter(GENDER == "Male") %>%  select(SALARY) %>%
+    filter(GENDER == "Male") %>%  dplyr::select(SALARY) %>%
   quantile(probs = c(0.25, 0.5, 0.75, 1), na.rm=TRUE)
   female_quantiles <- df %>% 
-    filter(GENDER == "Female") %>%  select(SALARY) %>%
+    filter(GENDER == "Female") %>%  dplyr::select(SALARY) %>%
   quantile(probs = c(0.25, 0.5, 0.75, 1), na.rm=TRUE)
   tempmatrix <- cbind(tempmatrix, male_quantiles, female_quantiles)
   return(tempmatrix)
@@ -504,7 +542,10 @@ kable(gender_quantile_table,
 
 
 
-# Analysis
+# Analysis with entropy
+```{r}
+alldata <- filter(alldata, GENDER %in% c("Male", "Female"))
+```
 
 ## factoring data
 ```{r}
@@ -512,27 +553,580 @@ kable(gender_quantile_table,
 alldata$highest <- relevel(as.factor(alldata$highest), ref = "none")
 # factor race, white will be baseline
 alldata$RACE_SET <- relevel(as.factor(alldata$RACE_SET), ref = "White")
+# factor gender, male will be baseline
+alldata$GENDER <- relevel(as.factor(alldata$GENDER), ref = "Male")
 
 ```
 
 
 ## controls only
 ```{r}
-lm1 <- lm(log(SALARY) ~ AGE + YRS_EXP + highest + GENDER + LOCATION_STATE, 
+lm1 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest + LOCATION_STATE, 
           data = alldata)
-summary(lm1)
+# summary(lm1)
 ```
 
 ## with race
 ```{r}
-lm2 <- lm(log(SALARY) ~ AGE + YRS_EXP + highest + GENDER + RACE_SET +
+lm2 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest + RACE_SET +
             LOCATION_STATE, 
           data = alldata)
-summary(lm2)
+# summary(lm2)
 ```
+
+## with change in entropy
+```{r}
+# with change in entropy
+lm3 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest + 
+            RACE_SET + LOCATION_STATE + d_entropy, 
+          data = alldata)
+# summary(lm3)
+```
+
+## entropy * gender
+```{r}
+# with entropy and gender
+lm4 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_entropy, 
+          data = alldata)
+# summary(lm4)
+```
+
+
+# Analysis with proportion change
+
+## Change in white
+```{r}
+# with entropy and gender
+lm5 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_white, 
+          data = alldata)
+summary(lm5)
+```
+
+## Change in black
+```{r}
+# with entropy and gender
+lm6 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_black, 
+          data = alldata)
+summary(lm6)
+```
+
+
+## Change in hispanic
+```{r}
+# with entropy and gender
+lm7 <- lm(log(SALARY) ~ GENDER + GENDER * d_hispanic + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
+          data = alldata)
+summary(lm7)
+```
+
+```{r}
+## southwest only
+alldata$sw <- alldata$LOCATION_STATE %in% 
+  c("TX", "NM", "AZ", "CA")
+table(alldata$sw)
+
+lmsw <- lm(log(SALARY) ~ GENDER + GENDER * d_hispanic + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
+          data = alldata[alldata$sw==TRUE,])
+summary(lmsw)
+
+lmnsw <- lm(log(SALARY) ~ GENDER + GENDER * d_hispanic + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
+          data = alldata[alldata$sw==FALSE,])
+summary(lmnsw)
+```
+
+
+## Change in native american
+```{r}
+# with entropy and gender
+lm8 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_native, 
+          data = alldata)
+summary(lm8)
+```
+
+## Change in asian
+```{r}
+# with entropy and gender
+lm9 <- lm(log(SALARY) ~ GENDER + GENDER * d_asian + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
+          data = alldata)
+summary(lm9)
+```
+
+
+# robustness checks
+
+## factoring data
+```{r}
+# factor highest education, no higher education will be baseline
+alldata2$highest <- relevel(as.factor(alldata2$highest), ref = "none")
+# factor race, white will be baseline
+alldata2$RACE_SET <- relevel(as.factor(alldata2$RACE_SET), ref = "White")
+# factor gender, male will be baseline
+alldata2$GENDER <- relevel(as.factor(alldata2$GENDER), ref = "Male")
+
+```
+
+## Results with larger age range
+```{r}
+## gender * entropy
+lm10 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_entropy, 
+          data = alldata2)
+summary(lm10)
+
+## change in Hispanic prop
+lm11 <- lm(log(SALARY) ~ GENDER + GENDER * d_hispanic + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
+          data = alldata2)
+summary(lm11)
+
+  ## change in White prop
+  lm12 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+              RACE_SET + LOCATION_STATE + GENDER * d_white, 
+            data = alldata2)
+  summary(lm12)
+
+# Change in Black prop
+lm13 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_black, 
+          data = alldata2)
+summary(lm13)
+
+## change in asian prop
+lm14 <- lm(log(SALARY) ~ GENDER + GENDER * d_asian + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
+          data = alldata2)
+summary(lm14)
+
+## change in native american prop
+lm15 <- lm(log(SALARY) ~ GENDER + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE + GENDER * d_native, 
+          data = alldata2)
+summary(lm15)
+```
+
+
+## results for metropolitan only
+```{r}
+lm16 <- lm(log(SALARY) ~ GENDER + GENDER * d_hispanic + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
+          data = filter(alldata, 
+                        metro_micro_area == "Metropolitan Statistical Area"))
+summary(lm16)
+```
+
+
+## results for micropolitan only
+```{r}
+lm17 <- lm(log(SALARY) ~ GENDER + GENDER * d_hispanic + AGE + YRS_EXP + highest +
+            RACE_SET + LOCATION_STATE , 
+          data = filter(alldata, 
+                        metro_micro_area == "Micropolitan Statistical Area"))
+summary(lm17)
+```
+
+
+## results for high school only
+```{r}
+lm17 <- lm(log(SALARY) ~ GENDER + GENDER * d_hispanic + AGE + YRS_EXP +
+            RACE_SET + LOCATION_STATE , 
+          data = filter(alldata, 
+                        highest == "none")) # no higher edu
+summary(lm17)
+```
+
+
+## results for higher ed only
+```{r}
+lm18 <- lm(log(SALARY) ~ GENDER + GENDER * d_hispanic + AGE + YRS_EXP +
+            RACE_SET + LOCATION_STATE , 
+          data = filter(alldata, 
+                        highest != "none")) # only higher edu
+summary(lm18)
+```
+
+
+
+
+
+\newpage
+# making tables
+
+## entropy tables
+```{r results = 'asis'}
+stargazer:: stargazer(
+  lm1, lm2, lm3, lm4,
+  omit = c("LOCATION_STATE", "GENDERMissing", "GENDEROther" , 
+           "d_entropy:GENDEROther"),
+  notes = "",
+  notes.append = FALSE,
+  notes.align = "l",
+  single.row = FALSE,
+  notes.label = "",
+  no.space= TRUE,
+  omit.stat=c("LL","ser","f"),
+  covariate.labels = c("Female", "Age", "Years of Experience", 
+                       "Graduate degree", "Professional Degree", 
+                       "Undergrad Degree", "Native American", "Asian", 
+                       "Black", "Hispanic", "Entropy"),
+  dep.var.caption  = "Dependent Variable",
+  dep.var.labels   = "Log Salary"
+)
+
+```
+
+## race prop tables
+
+```{r results = 'asis'}
+stargazer:: stargazer(
+  lm5, lm6, lm7, lm8, lm9,
+  omit = c("LOCATION_STATE", "GENDERMissing", "GENDEROther"),
+  notes = "",
+  notes.append = FALSE,
+  notes.align = "l",
+  single.row = FALSE,
+  notes.label = "",
+  no.space= FALSE,
+  omit.stat=c("LL","ser","f")#,
+  # covariate.labels = c("Female", "Age", "Years of Experience", 
+  #                      "graduate degree", "Professional Degree", 
+  #                      "Undergrad Degree", "Native American", "Asian", 
+  #                      "Black", "Hispanic", "d_white", "d_black", 
+  #                      "d_hispanic", "d_native", "d_asian")
+)
+```
+
+
+# Making figures
+```{r}
+# a marginal effect plot of the gender gap based on change in entropy
+me_interaction <- interplot(lm4, var1 = "GENDER", var2 = "d_entropy",
+                            facet_labs = "", rfill = "#63aaff")+ 
+  # Add labels for X and Y axes
+  xlab("Change in Entropy") +
+  ylab("Estimated Coefficient for Female Indicator") +
+  theme(text = element_text(size = 15)) +
+  scale_x_continuous(breaks = seq(-0.2,0.6,0.1)) +
+  theme_classic() + 
+  theme(strip.background = element_blank())
+ggsave(
+  "me_interaction.png",
+  plot = last_plot(),
+  width = 8,
+  height = 6,
+  units = "in",
+  dpi = 300,
+  limitsize = TRUE,
+  bg = NULL,
+)
+
+# entropy effect marginal
+library(margins)
+entropy_marg <- cplot(lm4, "d_entropy", what = "effect")+ 
+  # Add labels for X and Y axes
+  xlab("Change in Entropy") +
+  ylab("Estimated Coefficient Change in Entropy") +
+  theme(text = element_text(size = 15)) +
+  scale_x_continuous(breaks = seq(-0.2,0.6,0.1))
+ggsave(
+  "entropy_marg.png",
+  plot = last_plot(),
+  width = 8,
+  height = 6,
+  units = "in",
+  dpi = 300,
+  limitsize = TRUE,
+  bg = NULL,
+)
+
+# gender salary barplot
+gender_comparisons <- ggplot(data=alldata, aes(RACE_SET, SALARY, fill = GENDER)) +           # ggplot2 barplot with mean
+  geom_bar(position = "dodge",
+           stat = "summary",
+           fun = "mean") + 
+  theme_classic() + 
+  ggtitle("Figure 3: Gender Gap by Race/Ethnicity") +
+  xlab("Race/Ethnicity") +
+  theme(axis.text.x = element_text(size=15, angle=0),
+        legend.position = c(0.75,0.95),
+        legend.title = element_blank()) +
+  scale_x_discrete(labels=c("White", "Native \n American", "Asian", "Black", "Hispanic")) +
+  scale_fill_manual(values=c("#00356b", "#5f712d"))+
+  coord_cartesian(ylim=c(0,82500)) +
+  scale_y_continuous(position="left")
+ggsave(
+  "gender_comparisons.png",
+  plot = last_plot(),
+  width = 8,
+  height = 6,
+  units = "in",
+  dpi = 300,
+  limitsize = TRUE,
+  bg = NULL,
+)
+
+alldata$YEAR <- year(alldata$UPDATE_DATE)
+race_time1 <- ggplot() +
+  geom_line(aes(x=c(2010, 2020), 
+                y = c(mean(cbsa_race10$t_black_2010/cbsa_race10$t_2010),
+                           mean(cbsa_race20$t_black_2020/cbsa_race20$t_2020))),
+            color = "#785EF0", size = 1) +
+  geom_line(aes(x=c(2010, 2020), 
+                y = c(mean(cbsa_race10$t_asian_2010/cbsa_race10$t_2010),
+                      mean(cbsa_race20$t_asian_2020/cbsa_race20$t_2020))),
+            color = "#DC267F", size = 1) +
+  geom_line(aes(x=c(2010, 2020), 
+                y = c(mean(cbsa_race10$t_hispanic_2010/cbsa_race10$t_2010),
+                      mean(cbsa_race20$t_hispanic_2020/cbsa_race20$t_2020))),
+            color = "#FE6100", size = 1) +
+  geom_line(aes(x=c(2010, 2020), 
+                y = c(mean(cbsa_race10$t_native_2010/cbsa_race10$t_2010),
+                      mean(cbsa_race20$t_native_2020/cbsa_race20$t_2020))),
+            color = "#FFB000", size = 1) +
+  scale_x_continuous(breaks = c(2010, 2020)) +
+  xlab("Year") +
+  ylab("Proportion of Population") +
+  ggtitle("I need to add a legend")
+ggsave(
+  "race_time1.png",
+  plot = last_plot(),
+  width = 8,
+  height = 3,
+  units = "in",
+  dpi = 300,
+  limitsize = TRUE,
+  bg = NULL,
+)
+
+race_time2 <- ggplot() +
+    geom_line(aes(x=c(2010, 2020), 
+                y = c(mean(cbsa_race10$t_white_2010/cbsa_race10$t_2010),
+                           mean(cbsa_race20$t_white_2020/cbsa_race20$t_2020))),
+            color = "#648FFF", size = 1)
+ggsave(
+  "race_time2.png",
+  plot = last_plot(),
+  width = 8,
+  height = 1,
+  units = "in",
+  dpi = 300,
+  limitsize = TRUE,
+  bg = NULL,
+)
+
+# gender pay gap barplot
+gender_gap <- ggplot(data=alldata, aes(GENDER, SALARY, fill = GENDER)) + 
+  geom_bar(position = "dodge",
+           stat = "summary",
+           fun = "mean", 
+           show.legend = FALSE) +
+  theme_classic() + 
+  theme(axis.text.x = element_text(size=15),
+        axis.text.y = element_blank()) +
+  scale_fill_manual(values=c("#00356b", "#5f712d")) +
+  coord_cartesian(ylim=c(0,82500)) +
+  scale_x_discrete(labels=c("\n Male", "\n Female"))
+  #coord_flip(ylim=c(0,82599))
+ggsave(
+  "gender_gap.png",
+  plot = last_plot(),
+  width = 3.25,
+  height =8,
+  units = "in",
+  dpi = 300,
+  limitsize = TRUE,
+  bg = NULL,
+)
+
+
+# coefficient plot
+library(broom)
+results <- tidy(lm4)
+
+fit_cis_95 <- confint(lm4, level = 0.95) %>% 
+  data.frame() %>%
+  rename("conf.low_95" = "X2.5..",
+         "conf.high_95" = "X97.5..")
+fit_cis_90 <- confint(lm4, level = 0.90) %>% 
+  data.frame() %>%
+  rename("conf.low_90" = "X5..",
+         "conf.high_90" = "X95..")
+
+results <- bind_cols(results, 
+                     fit_cis_95, 
+                     fit_cis_90) %>%
+           rename(Variable = term,
+                  Coefficient = estimate,
+                  SE = std.error) %>%
+           filter(Variable != "(Intercept)") %>%
+           filter(Variable %in% c("GENDERFemale:d_entropy", "d_entropy", "GENDERFemale"))
+
+coef_plot <- ggplot(results, 
+       aes(x = Variable, y = Coefficient)) +
+        geom_hline(yintercept = 0, 
+                   colour = gray(1/2), lty = 2) +
+        geom_point(aes(x = Variable, 
+                    y = Coefficient)) + 
+        geom_linerange(aes(x = Variable, 
+                     ymin = conf.low_90,
+                     ymax = conf.high_90),
+                   lwd = 1) +
+        geom_linerange(aes(x = Variable, 
+                     ymin = conf.low_95,
+                     ymax = conf.high_95),
+                   lwd = 1/2) + 
+        ggtitle("Estimated Effects of Gender and Entropy Change") +
+        scale_x_discrete(labels = c("Entropy Change", "Female", "Entropy-Female Interaction")) +
+        coord_flip()
+ggsave(
+  "coef_plot.png",
+  plot = last_plot(),
+  width = 8,
+  height = 5,
+  units = "in",
+  dpi = 300,
+  limitsize = TRUE,
+  bg = NULL,
+)
+
+
+entropy_hist <- ggplot(alldata, aes(x=d_entropy)) +
+  geom_histogram(fill = "#63aaff")+
+  geom_vline(aes(xintercept=0, color="red"),
+            linetype="dashed",
+            show.legend = FALSE) +
+  scale_x_continuous(breaks = seq(-.1, .4, .1)) +
+  xlim(-.1,.4) +
+  ylab("Number of Observations") +
+  xlab("Change in Entropy for Observation")
+ggsave(
+  "entropy_hist.png",
+  plot = last_plot(),
+  width = 8,
+  height = 5,
+  units = "in",
+  dpi = 300,
+  limitsize = TRUE,
+  bg = NULL,
+)
+
+
+avg_data <- alldata %>% group_by(YEAR) %>%
+  summarise(mean_C1 = mean(t_white_2010/t_2020))
+
+ggplot(avg_data, aes(YEAR, mean_C1)) +
+  geom_point()
+
+
+
+### interesting but not needed
+# avg_data <- alldata %>% group_by(YEAR) %>%
+#   summarise(mean_C1 = mean(t_white_2010/t_2020))
+# 
+# ggplot(avg_data, aes(YEAR, mean_C1)) +
+#   geom_point()
+```
+
 
 
 ```{r}
+mean(alldata$t_black_2010/alldata$t_2010)
+mean(alldata$t_black_2020/alldata$t_2020)
+mean(alldata$t_asian_2010/alldata$t_2010)
+mean(alldata$t_asian_2020/alldata$t_2020)
+mean(alldata$t_hispanic_2010/alldata$t_2010)
+mean(alldata$t_hispanic_2020/alldata$t_2020)
+mean(alldata$t_native_2010/alldata$t_2010)
+mean(alldata$t_native_2020/alldata$t_2020)
+mean(alldata$t_white_2010/alldata$t_2010)
+mean(alldata$t_white_2020/alldata$t_2020)
 
 ```
+
+
+
+
+```{r}
+# entropy effect across educations
+
+ent_edu <- ggpredict(lm4, 
+          terms = c("d_entropy"),
+          condition = c(GENDER = "Male"),) %>%
+  plot(colors = c("#555599")) +
+  labs(title = "", x ="Change in Entropy", y = "Predicted Wage") +
+  scale_color_manual(values = 1) +
+  theme_classic()
+
+ggsave(
+  "ent_edu.png",
+  plot = last_plot(),
+  width = 8,
+  height = 5,
+  units = "in",
+  dpi = 300,
+  limitsize = TRUE,
+  bg = NULL,
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+##############
+# testing
+##############
+grid.arrange(gender_gap, gender_comparisons,
+             layout_matrix = rbind(c(1,1,2,2,2,2,2),
+                                   c(1,1,2,2,2,2,2),
+                                   c(1,1,2,2,2,2,2),
+                                   c(1,1,2,2,2,2,2)))
+
+
+mfdf <- data.frame(
+  SALARY = c(
+    mean(
+      alldata$SALARY[alldata$GENDER == "Male"],
+      na.rm = TRUE
+      ),
+    mean(
+      alldata$SALARY[alldata$GENDER == "Female"],
+      na.rm = TRUE
+      )
+    ),
+  GENDER = c("Male", "Female"))
+
+
+df <- data.frame(dose=c("Male", "Female"),
+                len=c(4.2, 10))
+df2 <- data.frame(dose=c("extra"), len = c(5))
+ggplot() +
+  geom_bar(data = df, aes(x=dose, y=len), stat="identity") +
+  geom_bar(data = df2, aes(x=dose, y=len), stat="identity")
+
+
+
+
+
+
+```
+
 
